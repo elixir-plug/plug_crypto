@@ -30,7 +30,7 @@ defmodule Plug.Crypto.MixProject do
   end
 
   defp deps do
-    []
+    [{:ex_doc, "~> 0.19.1", only: :dev}]
   end
 
   defp package do
