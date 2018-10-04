@@ -7,6 +7,10 @@ defmodule Plug.Crypto.KeyGenerator do
   secret. This lets applications have a single secure secret, but avoid reusing
   that key in multiple incompatible contexts.
 
+  The returned key is a binary. You may invoke functions in the `Base` module,
+  such as `Base.url_encode64/2`, to convert this binary into a textual
+  representation.
+
   see http://tools.ietf.org/html/rfc2898#section-5.2
   """
 

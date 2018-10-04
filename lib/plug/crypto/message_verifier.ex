@@ -6,6 +6,9 @@ defmodule Plug.Crypto.MessageVerifier do
   For example, the cookie store uses this verifier to send data
   to the client. The data can be read by the client, but cannot be
   tampered with.
+
+  The message and its verification are base64url encoded and returned
+  to you.
   """
 
   @doc """

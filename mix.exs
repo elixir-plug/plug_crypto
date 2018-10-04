@@ -2,7 +2,7 @@ defmodule Plug.Crypto.MixProject do
   use Mix.Project
 
   @version "1.0.0"
-  @description "Crypto-related functionality for the web, used by Plug."
+  @description "Crypto-related functionality for the web"
 
   def project do
     [
@@ -15,8 +15,7 @@ defmodule Plug.Crypto.MixProject do
       name: "Plug.Crypto",
       description: @description,
       docs: [
-        extras: ["README.md"],
-        main: "readme",
+        main: "Plug.Crypto",
         source_ref: "v#{@version}",
         source_url: "https://github.com/elixir-plug/plug"
       ]
