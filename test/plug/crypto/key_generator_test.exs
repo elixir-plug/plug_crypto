@@ -12,6 +12,14 @@ defmodule Plug.Crypto.KeyGeneratorTest do
     end
   end
 
+  test "returns an error if iterations is not an integer >= 1" do
+    for i <- [32.0, -1, nil, "many", :lots] do
+      assert_raise ArgumentError, "iterations must be an integer >= 1", fn ->
+        generate("secret", "salt", iterations: i)
+      end
+    end
+  end
+
   test "it works" do
     key = generate("password", "salt", iterations: 1, length: 20, digest: :sha)
     assert byte_size(key) == 20
