@@ -37,11 +37,11 @@ defmodule Plug.Crypto.KeyGenerator do
     cache = Keyword.get(opts, :cache)
 
     cond do
-      length > @max_length ->
-        raise ArgumentError, "length must be less than or equal to #{@max_length}"
-
       not is_integer(iterations) or iterations < 1 ->
         raise ArgumentError, "iterations must be an integer >= 1"
+
+      length > @max_length ->
+        raise ArgumentError, "length must be less than or equal to #{@max_length}"
 
       true ->
         with_cache(cache, {secret, salt, iterations, length, digest}, fn ->
