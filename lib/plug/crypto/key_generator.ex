@@ -40,10 +40,10 @@ defmodule Plug.Crypto.KeyGenerator do
       length > @max_length ->
         raise ArgumentError, "length must be less than or equal to #{@max_length}"
 
-      !is_integer(iterations) or iterations < 1 ->
+      not is_integer(iterations) or iterations < 1 ->
         raise ArgumentError, "iterations must be an integer >= 1"
 
-      :else ->
+      true ->
         with_cache(cache, {secret, salt, iterations, length, digest}, fn ->
           generate(mac_fun(digest, secret), salt, iterations, length, 1, [], 0)
         end)
