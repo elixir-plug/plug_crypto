@@ -36,12 +36,17 @@ defmodule Plug.Crypto.KeyGenerator do
     digest = Keyword.get(opts, :digest, :sha256)
     cache = Keyword.get(opts, :cache)
 
-    if length > @max_length do
-      raise ArgumentError, "length must be less than or equal to #{@max_length}"
-    else
-      with_cache(cache, {secret, salt, iterations, length, digest}, fn ->
-        generate(mac_fun(digest, secret), salt, iterations, length, 1, [], 0)
-      end)
+    cond do
+      not is_integer(iterations) or iterations < 1 ->
+        raise ArgumentError, "iterations must be an integer >= 1"
+
+      length > @max_length ->
+        raise ArgumentError, "length must be less than or equal to #{@max_length}"
+
+      true ->
+        with_cache(cache, {secret, salt, iterations, length, digest}, fn ->
+          generate(mac_fun(digest, secret), salt, iterations, length, 1, [], 0)
+        end)
     end
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(System.stacktrace())
