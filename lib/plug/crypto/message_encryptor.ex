@@ -11,17 +11,17 @@ defmodule Plug.Crypto.MessageEncryptor do
 
   ## Example
 
-      secret_key_base = "072d1e0157c008193fe48a670cce031faa4e..."
-      encrypted_cookie_salt = "encrypted cookie"
-      encrypted_signed_cookie_salt = "signed encrypted cookie"
-
-      secret = KeyGenerator.generate(secret_key_base, encrypted_cookie_salt)
-      sign_secret = KeyGenerator.generate(secret_key_base, encrypted_signed_cookie_salt)
-
-      data = "José"
-      encrypted = MessageEncryptor.encrypt(data, secret, sign_secret)
-      decrypted = MessageEncryptor.decrypt(encrypted, secret, sign_secret)
-      decrypted # => {:ok, "José"}
+      iex> secret_key_base = "072d1e0157c008193fe48a670cce031faa4e..."
+      ...> encrypted_cookie_salt = "encrypted cookie"
+      ...> encrypted_signed_cookie_salt = "signed encrypted cookie"
+      #
+      ...> secret = KeyGenerator.generate(secret_key_base, encrypted_cookie_salt)
+      ...> sign_secret = KeyGenerator.generate(secret_key_base, encrypted_signed_cookie_salt)
+      #
+      ...> data = "José"
+      ...> encrypted = MessageEncryptor.encrypt(data, secret, sign_secret)
+      ...> MessageEncryptor.decrypt(encrypted, secret, sign_secret)
+      {:ok, "José"}
 
   """
 

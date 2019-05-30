@@ -2,6 +2,8 @@ defmodule Plug.Crypto.MessageEncryptorTest do
   use ExUnit.Case, async: true
 
   alias Plug.Crypto.MessageEncryptor, as: ME
+  alias Plug.Crypto.{MessageEncryptor, KeyGenerator}
+  doctest MessageEncryptor
 
   @right String.duplicate("abcdefgh", 4)
   @wrong String.duplicate("12345678", 4)
