@@ -24,13 +24,19 @@ defmodule Plug.Crypto do
     do: stacktrace
 
   @doc """
-  A restricted version of `:erlang.binary_to_term/2` that
-  forbids *executable* terms, such as anonymous functions.
+  A restricted version of `:erlang.binary_to_term/2` that forbids
+  *executable* terms, such as anonymous functions.
 
-  Note that atoms are allowed in any shape by default, but
-  you may also pass the `[:safe]` option, which will be
-  forwarded to `:erlang.binary_to_term/2` for further
-  guarantees.
+  The `opts` are given to the underlying `:erlang.binary_to_term/2`
+  call, with an empty list as a default.
+
+  By default this function does not restrict atoms, as an atom
+  interned in one node may not yet have been interned on another
+  (except for releases, which preload all code).
+
+  If you want to avoid atoms from being created, then you can pass
+  `[:safe]` as options, as that will also enable the safety mechanisms
+  from `:erlang.binary_to_term/2` itself.
   """
   @spec safe_binary_to_term(binary(), [atom()]) :: term()
   def safe_binary_to_term(binary, opts \\ []) when is_binary(binary) do
