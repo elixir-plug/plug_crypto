@@ -9,6 +9,9 @@ defmodule Plug.Crypto.MessageVerifier do
 
   The message and its verification are base64url encoded and returned
   to you.
+
+  The current algorithm used is HMAC-SHA, with SHA256, SHA384, and
+  SHA512 as supported digest types.
   """
 
   @doc """

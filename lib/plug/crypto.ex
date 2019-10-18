@@ -10,6 +10,9 @@ defmodule Plug.Crypto do
 
   @doc """
   Prunes the stacktrace to remove any argument trace.
+
+  This is useful when working with functions that receives secrets
+  and we want to make sure those secrets do not leak on error messages.
   """
   @spec prune_args_from_stacktrace(Exception.stacktrace()) :: Exception.stacktrace()
   def prune_args_from_stacktrace(stacktrace)
@@ -22,9 +25,14 @@ defmodule Plug.Crypto do
 
   @doc """
   A restricted version of `:erlang.binary_to_term/2` that
-  forbids possibly unsafe terms.
+  forbids *executable* terms, such as anonymous functions.
+
+  Note that atoms are allowed in any shape by default, but
+  you may also pass the `[:safe]` option, which will be
+  forwarded to `:erlang.binary_to_term/2` for further
+  guarantees.
   """
-  @spec safe_binary_to_term(binary(), [atom()]) :: term() | {term(), non_neg_integer()}
+  @spec safe_binary_to_term(binary(), [atom()]) :: term()
   def safe_binary_to_term(binary, opts \\ []) when is_binary(binary) do
     term = :erlang.binary_to_term(binary, opts)
     safe_terms(term)

@@ -9,6 +9,8 @@ defmodule Plug.Crypto.MessageEncryptor do
   This can be used in situations similar to the `Plug.Crypto.MessageVerifier`,
   but where you don't want users to be able to determine the value of the payload.
 
+  The current algorithm used is AES-GCM-128.
+
   ## Example
 
       iex> secret_key_base = "072d1e0157c008193fe48a670cce031faa4e..."
