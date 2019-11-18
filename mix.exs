@@ -17,7 +17,7 @@ defmodule Plug.Crypto.MixProject do
       docs: [
         main: "Plug.Crypto",
         source_ref: "v#{@version}",
-        source_url: "https://github.com/elixir-plug/plug"
+        source_url: "https://github.com/elixir-plug/plug_crypto"
       ]
     ]
   end
