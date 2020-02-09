@@ -100,15 +100,7 @@ defmodule Plug.Crypto do
   """
   @spec mask(binary(), binary()) :: binary()
   def mask(left, right) do
-    mask(left, right, "")
-  end
-
-  defp mask(<<x, left::binary>>, <<y, right::binary>>, acc) do
-    mask(left, right, <<acc::binary, x ^^^ y>>)
-  end
-
-  defp mask(<<>>, <<>>, acc) do
-    acc
+    :crypto.exor(left, right)
   end
 
   @doc """
