@@ -1,7 +1,7 @@
 language: elixir
 sudo: false
 
-elixir: '1.7.3'
+elixir: '1.9.4'
 otp_release: '21.1'
 
 stages:
