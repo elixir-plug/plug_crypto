@@ -304,7 +304,12 @@ defmodule Plug.Crypto do
   end
 
   defp decode(message, opts) do
-    {data, signed} = non_executable_binary_to_term(message)
+    {data, signed} =
+      case non_executable_binary_to_term(message) do
+        {data, signed} -> {data, signed}
+        # For backwards compatibility with Phoenix which had the original code
+        %{data: data, signed: signed} -> {data, signed}
+      end
 
     if expired?(signed, Keyword.get(opts, :max_age, 86400)) do
       {:error, :expired}

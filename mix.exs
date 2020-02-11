@@ -1,7 +1,7 @@
 defmodule Plug.Crypto.MixProject do
   use Mix.Project
 
-  @version "1.1.0-dev"
+  @version "1.1.0"
   @description "Crypto-related functionality for the web"
 
   def project do
