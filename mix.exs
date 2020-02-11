@@ -1,14 +1,14 @@
 defmodule Plug.Crypto.MixProject do
   use Mix.Project
 
-  @version "1.0.0"
+  @version "1.1.0-dev"
   @description "Crypto-related functionality for the web"
 
   def project do
     [
       app: :plug_crypto,
       version: @version,
-      elixir: "~> 1.4",
+      elixir: "~> 1.5",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       package: package(),
@@ -24,12 +24,13 @@ defmodule Plug.Crypto.MixProject do
 
   def application do
     [
-      extra_applications: [:crypto]
+      extra_applications: [:crypto],
+      mod: {Plug.Crypto.Application, []}
     ]
   end
 
   defp deps do
-    [{:ex_doc, "~> 0.19.1", only: :dev}]
+    [{:ex_doc, "~> 0.21", only: :dev}]
   end
 
   defp package do

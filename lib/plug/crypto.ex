@@ -2,11 +2,12 @@ defmodule Plug.Crypto do
   @moduledoc """
   Namespace and module for crypto-related functionality.
 
-  Please see `Plug.Crypto.KeyGenerator`, `Plug.Crypto.MessageEncryptor`,
-  and `Plug.Crypto.MessageVerifier` for more functionality.
+  For low-level functionality, see `Plug.Crypto.KeyGenerator`,
+  `Plug.Crypto.MessageEncryptor`, and `Plug.Crypto.MessageVerifier`.
   """
 
   use Bitwise
+  alias Plug.Crypto.{KeyGenerator, MessageVerifier, MessageEncryptor}
 
   @doc """
   Prunes the stacktrace to remove any argument trace.
@@ -23,6 +24,12 @@ defmodule Plug.Crypto do
   def prune_args_from_stacktrace(stacktrace) when is_list(stacktrace),
     do: stacktrace
 
+  @doc false
+  @deprecated "Use non_executable_binary_to_term/2"
+  def safe_binary_to_term(binary, opts \\ []) do
+    non_executable_binary_to_term(binary, opts)
+  end
+
   @doc """
   A restricted version of `:erlang.binary_to_term/2` that forbids
   *executable* terms, such as anonymous functions.
@@ -38,59 +45,59 @@ defmodule Plug.Crypto do
   `[:safe]` as options, as that will also enable the safety mechanisms
   from `:erlang.binary_to_term/2` itself.
   """
-  @spec safe_binary_to_term(binary(), [atom()]) :: term()
-  def safe_binary_to_term(binary, opts \\ []) when is_binary(binary) do
+  @spec non_executable_binary_to_term(binary(), [atom()]) :: term()
+  def non_executable_binary_to_term(binary, opts \\ []) when is_binary(binary) do
     term = :erlang.binary_to_term(binary, opts)
-    safe_terms(term)
+    non_executable_terms(term)
     term
   end
 
-  defp safe_terms(list) when is_list(list) do
-    safe_list(list)
+  defp non_executable_terms(list) when is_list(list) do
+    non_executable_list(list)
   end
 
-  defp safe_terms(tuple) when is_tuple(tuple) do
-    safe_tuple(tuple, tuple_size(tuple))
+  defp non_executable_terms(tuple) when is_tuple(tuple) do
+    non_executable_tuple(tuple, tuple_size(tuple))
   end
 
-  defp safe_terms(map) when is_map(map) do
+  defp non_executable_terms(map) when is_map(map) do
     folder = fn key, value, acc ->
-      safe_terms(key)
-      safe_terms(value)
+      non_executable_terms(key)
+      non_executable_terms(value)
       acc
     end
 
     :maps.fold(folder, map, map)
   end
 
-  defp safe_terms(other)
+  defp non_executable_terms(other)
        when is_atom(other) or is_number(other) or is_bitstring(other) or is_pid(other) or
               is_reference(other) do
     other
   end
 
-  defp safe_terms(other) do
+  defp non_executable_terms(other) do
     raise ArgumentError,
           "cannot deserialize #{inspect(other)}, the term is not safe for deserialization"
   end
 
-  defp safe_list([]), do: :ok
+  defp non_executable_list([]), do: :ok
 
-  defp safe_list([h | t]) when is_list(t) do
-    safe_terms(h)
-    safe_list(t)
+  defp non_executable_list([h | t]) when is_list(t) do
+    non_executable_terms(h)
+    non_executable_list(t)
   end
 
-  defp safe_list([h | t]) do
-    safe_terms(h)
-    safe_terms(t)
+  defp non_executable_list([h | t]) do
+    non_executable_terms(h)
+    non_executable_terms(t)
   end
 
-  defp safe_tuple(_tuple, 0), do: :ok
+  defp non_executable_tuple(_tuple, 0), do: :ok
 
-  defp safe_tuple(tuple, n) do
-    safe_terms(:erlang.element(n, tuple))
-    safe_tuple(tuple, n - 1)
+  defp non_executable_tuple(tuple, n) do
+    non_executable_terms(:erlang.element(n, tuple))
+    non_executable_tuple(tuple, n - 1)
   end
 
   @doc """
@@ -142,4 +149,184 @@ defmodule Plug.Crypto do
   defp secure_compare(<<>>, <<>>, acc) do
     acc === 0
   end
+
+  @doc """
+  Encodes and signs data into a token you can send to clients.
+
+      Plug.Crypto.sign(conn.secret_key_base, "user-secret", {:elixir, :terms})
+
+  ## Options
+
+    * `:key_iterations` - option passed to `Plug.Crypto.KeyGenerator`
+      when generating the encryption and signing keys. Defaults to 1000
+    * `:key_length` - option passed to `Plug.Crypto.KeyGenerator`
+      when generating the encryption and signing keys. Defaults to 32
+    * `:key_digest` - option passed to `Plug.Crypto.KeyGenerator`
+      when generating the encryption and signing keys. Defaults to `:sha256`
+    * `:signed_at` - set the timestamp of the token in seconds.
+      Defaults to `System.system_time(:second)`
+
+  """
+  def sign(key_base, salt, data, opts \\ []) when is_binary(salt) do
+    data
+    |> encode(opts)
+    |> MessageVerifier.sign(get_secret(key_base, salt, opts))
+  end
+
+  @doc """
+  Encodes, encrypts, and signs data into a token you can send to clients.
+
+  ## Options
+
+    * `:key_iterations` - option passed to `Plug.Crypto.KeyGenerator`
+      when generating the encryption and signing keys. Defaults to 1000
+    * `:key_length` - option passed to `Plug.Crypto.KeyGenerator`
+      when generating the encryption and signing keys. Defaults to 32
+    * `:key_digest` - option passed to `Plug.Crypto.KeyGenerator`
+      when generating the encryption and signing keys. Defaults to `:sha256`
+    * `:signed_at` - set the timestamp of the token in seconds.
+      Defaults to `System.system_time(:second)`
+
+  """
+  def encrypt(key_base, secret, salt, data, opts \\ [])
+      when is_binary(secret) and is_binary(salt) do
+    data
+    |> encode(opts)
+    |> MessageEncryptor.encrypt(
+      get_secret(key_base, secret, opts),
+      get_secret(key_base, salt, opts)
+    )
+  end
+
+  defp encode(data, opts) do
+    signed_at_seconds = Keyword.get(opts, :signed_at)
+    signed_at_ms = if signed_at_seconds, do: trunc(signed_at_seconds * 1000), else: now_ms()
+    :erlang.term_to_binary({data, signed_at_ms})
+  end
+
+  @doc """
+  Decodes the original data from the token and verifies its integrity.
+
+  ## Examples
+
+  In this scenario we will create a token, sign it, then provide it to a client
+  application. The client will then use this token to authenticate requests for
+  resources from the server. See `Plug.Crypto` summary for more info about
+  creating tokens.
+
+      iex> user_id    = 99
+      iex> secret     = "kjoy3o1zeidquwy1398juxzldjlksahdk3"
+      iex> user_salt  = "user salt"
+      iex> token      = Plug.Crypto.sign(secret, user_salt, user_id)
+
+  The mechanism for passing the token to the client is typically through a
+  cookie, a JSON response body, or HTTP header. For now, assume the client has
+  received a token it can use to validate requests for protected resources.
+
+  When the server receives a request, it can use `verify/4` to determine if it
+  should provide the requested resources to the client:
+
+      iex> Plug.Crypto.verify(secret, user_salt, token, max_age: 86400)
+      {:ok, 99}
+
+  In this example, we know the client sent a valid token because `verify/4`
+  returned a tuple of type `{:ok, user_id}`. The server can now proceed with
+  the request.
+
+  However, if the client had sent an expired or otherwise invalid token
+  `verify/4` would have returned an error instead:
+
+      iex> Plug.Crypto.verify(secret, user_salt, expired, max_age: 86400)
+      {:error, :expired}
+
+      iex> Plug.Crypto.verify(secret, user_salt, invalid, max_age: 86400)
+      {:error, :invalid}
+
+  ## Options
+
+    * `:max_age` - verifies the token only if it has been generated
+      "max age" ago in seconds. A reasonable value is 1 day (86400
+      seconds)
+    * `:key_iterations` - option passed to `Plug.Crypto.KeyGenerator`
+      when generating the encryption and signing keys. Defaults to 1000
+    * `:key_length` - option passed to `Plug.Crypto.KeyGenerator`
+      when generating the encryption and signing keys. Defaults to 32
+    * `:key_digest` - option passed to `Plug.Crypto.KeyGenerator`
+      when generating the encryption and signing keys. Defaults to `:sha256`
+
+  """
+  def verify(key_base, salt, token, opts \\ [])
+
+  def verify(key_base, salt, token, opts) when is_binary(salt) and is_binary(token) do
+    secret = get_secret(key_base, salt, opts)
+
+    case MessageVerifier.verify(token, secret) do
+      {:ok, message} -> decode(message, opts)
+      :error -> {:error, :invalid}
+    end
+  end
+
+  def verify(_key_base, salt, nil, _opts) when is_binary(salt) do
+    {:error, :missing}
+  end
+
+  @doc """
+  Decrypts the original data from the token and verifies its integrity.
+
+  ## Options
+
+    * `:max_age` - verifies the token only if it has been generated
+      "max age" ago in seconds. A reasonable value is 1 day (86400
+      seconds)
+    * `:key_iterations` - option passed to `Plug.Crypto.KeyGenerator`
+      when generating the encryption and signing keys. Defaults to 1000
+    * `:key_length` - option passed to `Plug.Crypto.KeyGenerator`
+      when generating the encryption and signing keys. Defaults to 32
+    * `:key_digest` - option passed to `Plug.Crypto.KeyGenerator`
+      when generating the encryption and signing keys. Defaults to `:sha256`
+
+  """
+  def decrypt(key_base, secret, salt, token, opts \\ [])
+
+  def decrypt(key_base, secret, salt, token, opts)
+      when is_binary(secret) and is_binary(salt) and is_binary(token) do
+    secret = get_secret(key_base, secret, opts)
+    salt = get_secret(key_base, salt, opts)
+
+    case MessageEncryptor.decrypt(token, secret, salt) do
+      {:ok, message} -> decode(message, opts)
+      :error -> {:error, :invalid}
+    end
+  end
+
+  def decrypt(_context, secret, salt, nil, _opts) when is_binary(secret) and is_binary(salt) do
+    {:error, :missing}
+  end
+
+  defp decode(message, opts) do
+    {data, signed} = non_executable_binary_to_term(message)
+
+    if expired?(signed, Keyword.get(opts, :max_age, 86400)) do
+      {:error, :expired}
+    else
+      {:ok, data}
+    end
+  end
+
+  ## Helpers
+
+  # Gathers configuration and generates the key secrets and signing secrets.
+  defp get_secret(secret_key_base, salt, opts) do
+    iterations = Keyword.get(opts, :key_iterations, 1000)
+    length = Keyword.get(opts, :key_length, 32)
+    digest = Keyword.get(opts, :key_digest, :sha256)
+    key_opts = [iterations: iterations, length: length, digest: digest, cache: Plug.Crypto.Keys]
+    KeyGenerator.generate(secret_key_base, salt, key_opts)
+  end
+
+  defp expired?(_signed, :infinity), do: false
+  defp expired?(_signed, max_age_secs) when max_age_secs <= 0, do: true
+  defp expired?(signed, max_age_secs), do: signed + trunc(max_age_secs * 1000) < now_ms()
+
+  defp now_ms, do: System.system_time(:millisecond)
 end
