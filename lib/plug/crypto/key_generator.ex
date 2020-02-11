@@ -35,7 +35,11 @@ defmodule Plug.Crypto.KeyGenerator do
     length = Keyword.get(opts, :length, 32)
     digest = Keyword.get(opts, :digest, :sha256)
     cache = Keyword.get(opts, :cache)
+    generate(secret, salt, iterations, length, digest, cache)
+  end
 
+  @doc false
+  def generate(secret, salt, iterations, length, digest, cache) do
     cond do
       not is_integer(iterations) or iterations < 1 ->
         raise ArgumentError, "iterations must be an integer >= 1"

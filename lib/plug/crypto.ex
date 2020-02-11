@@ -320,8 +320,8 @@ defmodule Plug.Crypto do
     iterations = Keyword.get(opts, :key_iterations, 1000)
     length = Keyword.get(opts, :key_length, 32)
     digest = Keyword.get(opts, :key_digest, :sha256)
-    key_opts = [iterations: iterations, length: length, digest: digest, cache: Plug.Crypto.Keys]
-    KeyGenerator.generate(secret_key_base, salt, key_opts)
+    cache = Keyword.get(opts, :cache, Plug.Crypto.Keys)
+    KeyGenerator.generate(secret_key_base, salt, iterations, length, digest, cache)
   end
 
   defp expired?(_signed, :infinity), do: false
