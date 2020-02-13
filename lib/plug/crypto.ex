@@ -165,6 +165,8 @@ defmodule Plug.Crypto do
       when generating the encryption and signing keys. Defaults to `:sha256`
     * `:signed_at` - set the timestamp of the token in seconds.
       Defaults to `System.system_time(:second)`
+    * `:max_age` - the default maximum age of the token. Defaults to
+      `86400` seconds (1 day) and it may be overridden on `verify/4`.
 
   """
   def sign(key_base, salt, data, opts \\ []) when is_binary(salt) do
@@ -186,6 +188,8 @@ defmodule Plug.Crypto do
       when generating the encryption and signing keys. Defaults to `:sha256`
     * `:signed_at` - set the timestamp of the token in seconds.
       Defaults to `System.system_time(:second)`
+    * `:max_age` - the default maximum age of the token. Defaults to
+      `86400` seconds (1 day) and it may be overridden on `decrypt/5`.
 
   """
   def encrypt(key_base, secret, salt, data, opts \\ [])
@@ -201,7 +205,8 @@ defmodule Plug.Crypto do
   defp encode(data, opts) do
     signed_at_seconds = Keyword.get(opts, :signed_at)
     signed_at_ms = if signed_at_seconds, do: trunc(signed_at_seconds * 1000), else: now_ms()
-    :erlang.term_to_binary({data, signed_at_ms})
+    max_age_in_seconds = Keyword.get(opts, :max_age, 86400)
+    :erlang.term_to_binary({data, signed_at_ms, max_age_in_seconds})
   end
 
   @doc """
@@ -245,8 +250,8 @@ defmodule Plug.Crypto do
   ## Options
 
     * `:max_age` - verifies the token only if it has been generated
-      "max age" ago in seconds. A reasonable value is 1 day (86400
-      seconds)
+      "max age" ago in seconds. Defaults to the max age signed in the
+      token (86400)
     * `:key_iterations` - option passed to `Plug.Crypto.KeyGenerator`
       when generating the encryption and signing keys. Defaults to 1000
     * `:key_length` - option passed to `Plug.Crypto.KeyGenerator`
@@ -304,14 +309,16 @@ defmodule Plug.Crypto do
   end
 
   defp decode(message, opts) do
-    {data, signed} =
+    {data, signed, max_age} =
       case non_executable_binary_to_term(message) do
-        {data, signed} -> {data, signed}
+        {data, signed, max_age} -> {data, signed, max_age}
+        # For backwards compatibility with Plug.Crypto v1.1
+        {data, signed} -> {data, signed, 86400}
         # For backwards compatibility with Phoenix which had the original code
-        %{data: data, signed: signed} -> {data, signed}
+        %{data: data, signed: signed} -> {data, signed, 86400}
       end
 
-    if expired?(signed, Keyword.get(opts, :max_age, 86400)) do
+    if expired?(signed, Keyword.get(opts, :max_age, max_age)) do
       {:error, :expired}
     else
       {:ok, data}
@@ -330,7 +337,7 @@ defmodule Plug.Crypto do
   end
 
   defp expired?(_signed, :infinity), do: false
-  defp expired?(_signed, max_age_secs) when max_age_secs < 0, do: true
+  defp expired?(_signed, max_age_secs) when max_age_secs <= 0, do: true
   defp expired?(signed, max_age_secs), do: signed + trunc(max_age_secs * 1000) < now_ms()
 
   defp now_ms, do: System.system_time(:millisecond)

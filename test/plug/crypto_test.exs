@@ -73,9 +73,24 @@ defmodule Plug.CryptoTest do
       assert verify(@key, "id", token, max_age: -1000) == {:error, :expired}
       assert verify(@key, "id", token, max_age: 100) == {:ok, 1}
       assert verify(@key, "id", token, max_age: -100) == {:error, :expired}
+
+      token = sign(@key, "id", 1)
       assert verify(@key, "id", token, max_age: 0.1) == {:ok, 1}
       Process.sleep(150)
       assert verify(@key, "id", token, max_age: 0.1) == {:error, :expired}
+    end
+
+    test "supports max age in seconds on encryption" do
+      token = sign(@key, "id", 1, max_age: 1000)
+      assert verify(@key, "id", token) == {:ok, 1}
+
+      token = sign(@key, "id", 1, max_age: -1000)
+      assert verify(@key, "id", token) == {:error, :expired}
+      assert verify(@key, "id", token, max_age: 1000) == {:ok, 1}
+
+      token = sign(@key, "id", 1, max_age: 0.1)
+      Process.sleep(150)
+      assert verify(@key, "id", token) == {:error, :expired}
     end
 
     test "supports :infinity for max age" do
@@ -89,11 +104,6 @@ defmodule Plug.CryptoTest do
       token = sign(@key, "id", 1, signed_at: day_ago_seconds)
       assert verify(@key, "id", token, max_age: seconds_in_day + 1) == {:ok, 1}
       assert verify(@key, "id", token, max_age: seconds_in_day - 1) == {:error, :expired}
-    end
-
-    test "supports signed_at in the future" do
-      token = sign(@key, "id", 1, signed_at: System.system_time(:second) + 10)
-      assert verify(@key, "id", token, max_age: 0) == {:ok, 1}
     end
 
     test "passes key_iterations options to key generator" do
@@ -158,9 +168,24 @@ defmodule Plug.CryptoTest do
       assert decrypt(@key, "secret", "id", token, max_age: -1000) == {:error, :expired}
       assert decrypt(@key, "secret", "id", token, max_age: 100) == {:ok, 1}
       assert decrypt(@key, "secret", "id", token, max_age: -100) == {:error, :expired}
+
+      token = encrypt(@key, "secret", "id", 1)
       assert decrypt(@key, "secret", "id", token, max_age: 0.1) == {:ok, 1}
       Process.sleep(150)
       assert decrypt(@key, "secret", "id", token, max_age: 0.1) == {:error, :expired}
+    end
+
+    test "supports max age in seconds on encryption" do
+      token = encrypt(@key, "secret", "id", 1, max_age: 1000)
+      assert decrypt(@key, "secret", "id", token) == {:ok, 1}
+
+      token = encrypt(@key, "secret", "id", 1, max_age: -1000)
+      assert decrypt(@key, "secret", "id", token) == {:error, :expired}
+      assert decrypt(@key, "secret", "id", token, max_age: 1000) == {:ok, 1}
+
+      token = encrypt(@key, "secret", "id", 1, max_age: 0.1)
+      Process.sleep(150)
+      assert decrypt(@key, "secret", "id", token) == {:error, :expired}
     end
 
     test "supports :infinity for max age" do
@@ -176,11 +201,6 @@ defmodule Plug.CryptoTest do
 
       assert decrypt(@key, "secret", "id", token, max_age: seconds_in_day - 1) ==
                {:error, :expired}
-    end
-
-    test "supports signed_at in the future" do
-      token = encrypt(@key, "secret", "id", 1, signed_at: System.system_time(:second) + 10)
-      assert decrypt(@key, "secret", "id", token, max_age: 0) == {:ok, 1}
     end
 
     test "passes key_iterations options to key generator" do
