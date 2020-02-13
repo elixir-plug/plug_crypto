@@ -330,7 +330,7 @@ defmodule Plug.Crypto do
   end
 
   defp expired?(_signed, :infinity), do: false
-  defp expired?(_signed, max_age_secs) when max_age_secs <= 0, do: true
+  defp expired?(_signed, max_age_secs) when max_age_secs < 0, do: true
   defp expired?(signed, max_age_secs), do: signed + trunc(max_age_secs * 1000) < now_ms()
 
   defp now_ms, do: System.system_time(:millisecond)
