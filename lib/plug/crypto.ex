@@ -192,8 +192,13 @@ defmodule Plug.Crypto do
       `86400` seconds (1 day) and it may be overridden on `decrypt/5`.
 
   """
-  def encrypt(key_base, secret, salt, data, opts \\ [])
-      when is_binary(secret) and is_binary(salt) do
+  def encrypt(key_base, secret, token, opts \\ [])
+      when is_binary(key_base) and is_binary(secret) do
+    encrypt(key_base, secret, "", token, opts)
+  end
+
+  @doc false
+  def encrypt(key_base, secret, salt, data, opts) do
     data
     |> encode(opts)
     |> MessageEncryptor.encrypt(
@@ -291,10 +296,13 @@ defmodule Plug.Crypto do
       when generating the encryption and signing keys. Defaults to `:sha256`
 
   """
-  def decrypt(key_base, secret, salt, token, opts \\ [])
+  def decrypt(key_base, secret, token, opts \\ [])
+      when is_binary(key_base) and is_binary(secret) and is_list(opts) do
+    decrypt(key_base, secret, "", token, opts)
+  end
 
-  def decrypt(key_base, secret, salt, token, opts)
-      when is_binary(secret) and is_binary(salt) and is_binary(token) do
+  @doc false
+  def decrypt(key_base, secret, salt, token, opts) when is_binary(token) do
     secret = get_secret(key_base, secret, opts)
     salt = get_secret(key_base, salt, opts)
 
@@ -304,7 +312,8 @@ defmodule Plug.Crypto do
     end
   end
 
-  def decrypt(_context, secret, salt, nil, _opts) when is_binary(secret) and is_binary(salt) do
+  def decrypt(_key_base, secret, salt, nil, _opts)
+      when is_binary(secret) and is_binary(salt) do
     {:error, :missing}
   end
 
