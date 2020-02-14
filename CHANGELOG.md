@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.1
+
+  * Do not expose encryption with salt API
+  * Allow default `:max_age` to be set when signing/encrypting
+
 ## v1.1.0
 
   * Add high-level `Plug.Crypto.sign/verify` and `Plug.Crypto.encrypt/decrypt`
