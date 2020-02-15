@@ -169,7 +169,7 @@ defmodule Plug.Crypto do
       `86400` seconds (1 day) and it may be overridden on `verify/4`.
 
   """
-  def sign(key_base, salt, data, opts \\ []) when is_binary(salt) do
+  def sign(key_base, salt, data, opts \\ []) when is_binary(key_base) and is_binary(salt) do
     data
     |> encode(opts)
     |> MessageVerifier.sign(get_secret(key_base, salt, opts))
@@ -194,7 +194,7 @@ defmodule Plug.Crypto do
   """
   def encrypt(key_base, secret, token, opts \\ [])
       when is_binary(key_base) and is_binary(secret) do
-    encrypt(key_base, secret, "", token, opts)
+    encrypt(key_base, secret, nil, token, opts)
   end
 
   @doc false
@@ -267,7 +267,8 @@ defmodule Plug.Crypto do
   """
   def verify(key_base, salt, token, opts \\ [])
 
-  def verify(key_base, salt, token, opts) when is_binary(salt) and is_binary(token) do
+  def verify(key_base, salt, token, opts)
+      when is_binary(key_base) and is_binary(salt) and is_binary(token) do
     secret = get_secret(key_base, salt, opts)
 
     case MessageVerifier.verify(token, secret) do
@@ -298,7 +299,7 @@ defmodule Plug.Crypto do
   """
   def decrypt(key_base, secret, token, opts \\ [])
       when is_binary(key_base) and is_binary(secret) and is_list(opts) do
-    decrypt(key_base, secret, "", token, opts)
+    decrypt(key_base, secret, nil, token, opts)
   end
 
   @doc false
@@ -312,8 +313,7 @@ defmodule Plug.Crypto do
     end
   end
 
-  def decrypt(_key_base, secret, salt, nil, _opts)
-      when is_binary(secret) and is_binary(salt) do
+  def decrypt(_key_base, _secret, _salt, nil, _opts) do
     {:error, :missing}
   end
 
@@ -337,6 +337,14 @@ defmodule Plug.Crypto do
   ## Helpers
 
   # Gathers configuration and generates the key secrets and signing secrets.
+  defp get_secret(_secret_key_base, nil, _opts) do
+    ""
+  end
+
+  defp get_secret(_secret_key_base, "", _opts) do
+    raise ArgumentError, "salt cannot be an empty string"
+  end
+
   defp get_secret(secret_key_base, salt, opts) do
     iterations = Keyword.get(opts, :key_iterations, 1000)
     length = Keyword.get(opts, :key_length, 32)
