@@ -341,10 +341,6 @@ defmodule Plug.Crypto do
     ""
   end
 
-  defp get_secret(_secret_key_base, "", _opts) do
-    raise ArgumentError, "salt cannot be an empty string"
-  end
-
   defp get_secret(secret_key_base, salt, opts) do
     iterations = Keyword.get(opts, :key_iterations, 1000)
     length = Keyword.get(opts, :key_length, 32)

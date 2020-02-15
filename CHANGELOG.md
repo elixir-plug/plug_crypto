@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.1.2
+
+  * Do not key derive empty salts (default to no salt instead)
+
 ## v1.1.1
 
   * Do not expose encryption with salt API
