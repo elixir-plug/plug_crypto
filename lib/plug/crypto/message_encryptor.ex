@@ -122,7 +122,8 @@ defmodule Plug.Crypto.MessageEncryptor do
   end
 
   # Wraps a decrypted content encryption key (CEK) with secret and
-  # sign_secret using AES GCM mode.
+  # sign_secret using AES GCM mode. Accepts keys of 128, 192, or 
+  # 256 bits based on the length of the secret key.
   #
   # See: https://tools.ietf.org/html/rfc7518#section-4.7
   defp aes_gcm_key_wrap(cek, secret, sign_secret) when bit_size(secret) > 256 do
@@ -138,7 +139,8 @@ defmodule Plug.Crypto.MessageEncryptor do
   end
 
   # Unwraps an encrypted content encryption key (CEK) with secret and
-  # sign_secret using AES GCM mode.
+  # sign_secret using AES GCM mode. Accepts keys of 128, 192, or 256 
+  # bits based on the length of the secret key.
   #
   # See: https://tools.ietf.org/html/rfc7518#section-4.7
   defp aes_gcm_key_unwrap(wrapped_cek, secret, sign_secret) when bit_size(secret) > 256 do
