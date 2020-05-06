@@ -18,7 +18,7 @@ defmodule Plug.Crypto.MessageVerifier do
   Signs a message according to the given secret.
   """
   def sign(message, secret, digest_type \\ :sha256)
-      when is_binary(message) and is_binary(secret) and digest_type in [:sha256, :sha384, :sha512] do
+      when is_binary(message) and byte_size(secret) > 0 and digest_type in [:sha256, :sha384, :sha512] do
     hmac_sha2_sign(message, secret, digest_type)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(System.stacktrace())
@@ -27,7 +27,7 @@ defmodule Plug.Crypto.MessageVerifier do
   @doc """
   Decodes and verifies the encoded binary was not tampered with.
   """
-  def verify(signed, secret) when is_binary(signed) and is_binary(secret) do
+  def verify(signed, secret) when is_binary(signed) and byte_size(secret) > 0 do
     hmac_sha2_verify(signed, secret)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(System.stacktrace())

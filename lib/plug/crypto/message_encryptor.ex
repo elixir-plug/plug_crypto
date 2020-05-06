@@ -31,7 +31,7 @@ defmodule Plug.Crypto.MessageEncryptor do
   Encrypts a message using authenticated encryption.
   """
   def encrypt(message, secret, sign_secret)
-      when is_binary(message) and is_binary(secret) and is_binary(sign_secret) do
+      when is_binary(message) and byte_size(secret) > 0 and is_binary(sign_secret) do
     aes128_gcm_encrypt(message, secret, sign_secret)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(System.stacktrace())
@@ -41,7 +41,7 @@ defmodule Plug.Crypto.MessageEncryptor do
   Decrypts a message using authenticated encryption.
   """
   def decrypt(encrypted, secret, sign_secret)
-      when is_binary(encrypted) and is_binary(secret) and is_binary(sign_secret) do
+      when is_binary(encrypted) and byte_size(secret) > 0 and is_binary(sign_secret) do
     aes128_gcm_decrypt(encrypted, secret, sign_secret)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(System.stacktrace())
