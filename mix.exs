@@ -44,7 +44,7 @@ defmodule Plug.Crypto.MixProject do
         "José Valim"
       ],
       links: %{"GitHub" => "https://github.com/elixir-plug/plug_crypto"},
-      files: ["lib", "mix.exs", "README.md", "CHANGELOG.md"]
+      files: ["lib", "mix.exs", "README.md", "CHANGELOG.md", "LICENSE"]
     }
   end
 end
