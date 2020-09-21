@@ -8,7 +8,7 @@ defmodule Plug.Crypto.MixProject do
     [
       app: :plug_crypto,
       version: @version,
-      elixir: "~> 1.5",
+      elixir: "~> 1.7",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       package: package(),
