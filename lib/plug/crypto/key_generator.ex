@@ -53,7 +53,7 @@ defmodule Plug.Crypto.KeyGenerator do
         end)
     end
   rescue
-    e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(System.stacktrace())
+    e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
 
   defp with_cache(nil, _key, fun), do: fun.()

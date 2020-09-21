@@ -34,7 +34,7 @@ defmodule Plug.Crypto.MessageEncryptor do
       when is_binary(message) and byte_size(secret) > 0 and is_binary(sign_secret) do
     aes128_gcm_encrypt(message, secret, sign_secret)
   rescue
-    e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(System.stacktrace())
+    e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
 
   @doc """
@@ -44,7 +44,7 @@ defmodule Plug.Crypto.MessageEncryptor do
       when is_binary(encrypted) and byte_size(secret) > 0 and is_binary(sign_secret) do
     aes128_gcm_decrypt(encrypted, secret, sign_secret)
   rescue
-    e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(System.stacktrace())
+    e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
 
   # Encrypts and authenticates a message using AES128-GCM mode.
