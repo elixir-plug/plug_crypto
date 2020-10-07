@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.2.0
+
+  * Update Elixir requirement to Elixir 1.7+.
+  * Fixed a bug that allowed to sign and encrypt stuff with `nil` secret key base and salt.
+
 ## v1.1.2
 
   * Do not key derive empty salts (default to no salt instead)
