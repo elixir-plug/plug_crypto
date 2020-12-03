@@ -18,6 +18,6 @@ If you're using [Plug][plug], you can already use the functionality in plug_cryp
 
 ## License
 
-plug_crypto source code is released under Apache 2 License. Check the [LICENSE](./LICENSE) file for more information.
+plug_crypto source code is released under Apache License 2.0. Check the [LICENSE](./LICENSE) file for more information.
 
 [plug]: https://github.com/elixir-plug/plug
