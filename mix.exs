@@ -35,7 +35,7 @@ defmodule Plug.Crypto.MixProject do
 
   defp package do
     %{
-      licenses: ["Apache 2"],
+      licenses: ["Apache-2.0"],
       maintainers: [
         "Aleksei Magusev",
         "Andrea Leopardi",
