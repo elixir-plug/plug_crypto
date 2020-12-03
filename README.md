@@ -1,6 +1,6 @@
 # Plug.Crypto
 
-[![Build Status](https://travis-ci.org/elixir-plug/plug_crypto.svg?branch=master)](https://travis-ci.org/elixir-plug/plug_crypto)
+![CI](https://github.com/elixir-plug/plug_crypto/workflows/CI/badge.svg)
 
 Crypto-related functionality for web applications, used by [Plug][plug].
 
