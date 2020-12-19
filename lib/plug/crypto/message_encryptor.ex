@@ -104,16 +104,31 @@ defmodule Plug.Crypto.MessageEncryptor do
     end
   end
 
-  defp block_encrypt(algo, key, iv, payload) do
-    :crypto.block_encrypt(algo, key, iv, payload)
-  catch
-    :error, :notsup -> raise_notsup(algo)
-  end
+  # TODO: remove when we require OTP 22
+  if System.otp_release() >= "22" do
+    defp block_encrypt(algo, key, iv, {aad, payload}) do
+      :crypto.crypto_one_time_aead(algo, key, iv, payload, aad, true)
+    catch
+      :error, :notsup -> raise_notsup(algo)
+    end
 
-  defp block_decrypt(algo, key, iv, payload) do
-    :crypto.block_decrypt(algo, key, iv, payload)
-  catch
-    :error, :notsup -> raise_notsup(algo)
+    defp block_decrypt(algo, key, iv, {aad, payload, tag}) do
+      :crypto.crypto_one_time_aead(algo, key, iv, payload, aad, tag, false)
+    catch
+      :error, :notsup -> raise_notsup(algo)
+    end
+  else
+    defp block_encrypt(algo, key, iv, payload) do
+      :crypto.block_encrypt(algo, key, iv, payload)
+    catch
+      :error, :notsup -> raise_notsup(algo)
+    end
+
+    defp block_decrypt(algo, key, iv, payload) do
+      :crypto.block_decrypt(algo, key, iv, payload)
+    catch
+      :error, :notsup -> raise_notsup(algo)
+    end
   end
 
   defp raise_notsup(algo) do

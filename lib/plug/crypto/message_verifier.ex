@@ -47,7 +47,7 @@ defmodule Plug.Crypto.MessageVerifier do
   defp hmac_sha2_sign(payload, key, digest_type) do
     protected = hmac_sha2_to_protected(digest_type)
     plain_text = signing_input(protected, payload)
-    signature = :crypto.hmac(digest_type, key, plain_text)
+    signature = hmac(digest_type, key, plain_text)
     encode_token(plain_text, signature)
   end
 
@@ -55,7 +55,7 @@ defmodule Plug.Crypto.MessageVerifier do
     case decode_token(signed) do
       {protected, payload, plain_text, signature} when protected in ["HS256", "HS384", "HS512"] ->
         digest_type = hmac_sha2_to_digest_type(protected)
-        challenge = :crypto.hmac(digest_type, key, plain_text)
+        challenge = hmac(digest_type, key, plain_text)
 
         if Plug.Crypto.secure_compare(challenge, signature) do
           {:ok, payload}
@@ -92,5 +92,12 @@ defmodule Plug.Crypto.MessageVerifier do
     |> Base.url_encode64(padding: false)
     |> Kernel.<>(".")
     |> Kernel.<>(Base.url_encode64(payload, padding: false))
+  end
+
+  # TODO: remove when we require OTP 22
+  if System.otp_release() >= "22" do
+    defp hmac(digest, key, data), do: :crypto.mac(:hmac, digest, key, data)
+  else
+    defp hmac(digest, key, data), do: :crypto.hmac(digest, key, data)
   end
 end
