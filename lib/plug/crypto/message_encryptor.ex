@@ -104,16 +104,39 @@ defmodule Plug.Crypto.MessageEncryptor do
     end
   end
 
-  defp block_encrypt(algo, key, iv, payload) do
-    :crypto.block_encrypt(algo, key, iv, payload)
-  catch
-    :error, :notsup -> raise_notsup(algo)
-  end
+  # TODO: remove when we require OTP 22
+  if System.otp_release() >= "22" do
+    defp block_encrypt(cipher, key, iv, {aad, payload}) do
+      cipher = cipher_alias(cipher, bit_size(key))
+      :crypto.crypto_one_time_aead(cipher, key, iv, payload, aad, true)
+    catch
+      :error, :notsup -> raise_notsup(cipher)
+    end
 
-  defp block_decrypt(algo, key, iv, payload) do
-    :crypto.block_decrypt(algo, key, iv, payload)
-  catch
-    :error, :notsup -> raise_notsup(algo)
+    defp block_decrypt(cipher, key, iv, {aad, payload, tag}) do
+      cipher = cipher_alias(cipher, bit_size(key))
+      :crypto.crypto_one_time_aead(cipher, key, iv, payload, aad, tag, false)
+    catch
+      :error, :notsup -> raise_notsup(cipher)
+    end
+
+    # TODO: remove when we reqwuire OTP 24 (since it has similar alias handling)
+    defp cipher_alias(:aes_gcm, 128), do: :aes_128_gcm
+    defp cipher_alias(:aes_gcm, 192), do: :aes_192_gcm
+    defp cipher_alias(:aes_gcm, 256), do: :aes_256_gcm
+    defp cipher_alias(other, _), do: other
+  else
+    defp block_encrypt(cipher, key, iv, payload) do
+      :crypto.block_encrypt(cipher, key, iv, payload)
+    catch
+      :error, :notsup -> raise_notsup(cipher)
+    end
+
+    defp block_decrypt(cipher, key, iv, payload) do
+      :crypto.block_decrypt(cipher, key, iv, payload)
+    catch
+      :error, :notsup -> raise_notsup(cipher)
+    end
   end
 
   defp raise_notsup(algo) do

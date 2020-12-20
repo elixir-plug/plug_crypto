@@ -49,7 +49,7 @@ defmodule Plug.Crypto.KeyGenerator do
 
       true ->
         with_cache(cache, {secret, salt, iterations, length, digest}, fn ->
-          generate(mac_fun(digest, secret), salt, iterations, length, 1, [], 0)
+          generate(hmac_fun(digest, secret), salt, iterations, length, 1, [], 0)
         end)
     end
   rescue
@@ -92,7 +92,10 @@ defmodule Plug.Crypto.KeyGenerator do
     iterate(fun, iteration - 1, next, :crypto.exor(next, acc))
   end
 
-  defp mac_fun(digest, secret) do
-    &:crypto.hmac(digest, secret, &1)
+  # TODO: remove when we require OTP 22
+  if System.otp_release() >= "22" do
+    defp hmac_fun(digest, key), do: &:crypto.mac(:hmac, digest, key, &1)
+  else
+    defp hmac_fun(digest, key), do: &:crypto.hmac(digest, key, &1)
   end
 end
