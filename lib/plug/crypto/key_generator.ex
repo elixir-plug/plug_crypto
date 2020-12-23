@@ -11,7 +11,7 @@ defmodule Plug.Crypto.KeyGenerator do
   such as `Base.url_encode64/2`, to convert this binary into a textual
   representation.
 
-  see http://tools.ietf.org/html/rfc2898#section-5.2
+  See http://tools.ietf.org/html/rfc2898#section-5.2
   """
 
   use Bitwise
