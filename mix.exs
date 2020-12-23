@@ -3,6 +3,7 @@ defmodule Plug.Crypto.MixProject do
 
   @version "1.2.0"
   @description "Crypto-related functionality for the web"
+  @source_url "https://github.com/elixir-plug/plug_crypto"
 
   def project do
     [
@@ -17,7 +18,8 @@ defmodule Plug.Crypto.MixProject do
       docs: [
         main: "Plug.Crypto",
         source_ref: "v#{@version}",
-        source_url: "https://github.com/elixir-plug/plug_crypto"
+        source_url: @source_url,
+        extras: ["CHANGELOG.md"]
       ]
     ]
   end
@@ -43,7 +45,7 @@ defmodule Plug.Crypto.MixProject do
         "Gary Rennie",
         "José Valim"
       ],
-      links: %{"GitHub" => "https://github.com/elixir-plug/plug_crypto"},
+      links: %{"GitHub" => @source_url},
       files: ["lib", "mix.exs", "README.md", "CHANGELOG.md", "LICENSE"]
     }
   end
