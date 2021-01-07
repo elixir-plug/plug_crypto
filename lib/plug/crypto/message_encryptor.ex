@@ -105,7 +105,7 @@ defmodule Plug.Crypto.MessageEncryptor do
   end
 
   # TODO: remove when we require OTP 22
-  if System.otp_release() >= "22" do
+  if Code.ensure_loaded?(:crypto) and function_exported?(:crypto, :crypto_one_time_aead, 6) do
     defp block_encrypt(cipher, key, iv, {aad, payload}) do
       cipher = cipher_alias(cipher, bit_size(key))
       :crypto.crypto_one_time_aead(cipher, key, iv, payload, aad, true)

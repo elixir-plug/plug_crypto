@@ -94,8 +94,8 @@ defmodule Plug.Crypto.MessageVerifier do
     |> Kernel.<>(Base.url_encode64(payload, padding: false))
   end
 
-  # TODO: remove when we require OTP 22
-  if System.otp_release() >= "22" do
+  # TODO: remove when we require OTP 22.1
+  if Code.ensure_loaded?(:crypto) and function_exported?(:crypto, :mac, 4) do
     defp hmac(digest, key, data), do: :crypto.mac(:hmac, digest, key, data)
   else
     defp hmac(digest, key, data), do: :crypto.hmac(digest, key, data)
