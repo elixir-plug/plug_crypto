@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.2.0 (2021-02-17)
+## v1.2.1 (2021-02-17)
 
   * Add support for Erlang/OTP 24
 
