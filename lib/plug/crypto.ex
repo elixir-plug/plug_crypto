@@ -123,7 +123,7 @@ defmodule Plug.Crypto do
   end
 
   defp masked_compare(<<x, left::binary>>, <<y, right::binary>>, <<z, mask::binary>>, acc) do
-    xorred = bxor(x , bxor(y, z))
+    xorred = bxor(x, bxor(y, z))
     masked_compare(left, right, mask, acc ||| xorred)
   end
 
