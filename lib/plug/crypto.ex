@@ -192,9 +192,9 @@ defmodule Plug.Crypto do
       `86400` seconds (1 day) and it may be overridden on `decrypt/4`.
 
   """
-  def encrypt(key_base, secret, token, opts \\ [])
+  def encrypt(key_base, secret, data, opts \\ [])
       when is_binary(key_base) and is_binary(secret) do
-    encrypt(key_base, secret, nil, token, opts)
+    encrypt(key_base, secret, nil, data, opts)
   end
 
   @doc false
