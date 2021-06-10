@@ -155,6 +155,9 @@ defmodule Plug.Crypto do
 
       Plug.Crypto.sign(conn.secret_key_base, "user-secret", {:elixir, :terms})
 
+  A key will be derived from the secret key base and the given user secret.
+  The key will also be cached for performance reasons on future calls.
+
   ## Options
 
     * `:key_iterations` - option passed to `Plug.Crypto.KeyGenerator`
@@ -177,6 +180,11 @@ defmodule Plug.Crypto do
 
   @doc """
   Encodes, encrypts, and signs data into a token you can send to clients.
+
+      Plug.Crypto.encrypt(conn.secret_key_base, "user-secret", {:elixir, :terms})
+
+  A key will be derived from the secret key base and the given user secret.
+  The key will also be cached for performance reasons on future calls.
 
   ## Options
 
