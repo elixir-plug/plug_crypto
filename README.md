@@ -15,7 +15,7 @@ def deps do
 end
 ```
 
-If you're using [Plug][plug], you can already use the functionality in plug_crypto since Plug depends on it.
+If you're using [Plug](https://github.com/elixir-plug/plug), you can already use the functionality in plug_crypto since Plug depends on it.
 
 ## Contributing
 
