@@ -6,7 +6,7 @@ defmodule Plug.Crypto do
   `Plug.Crypto.MessageEncryptor`, and `Plug.Crypto.MessageVerifier`.
   """
 
-  use Bitwise
+  import Bitwise
   alias Plug.Crypto.{KeyGenerator, MessageVerifier, MessageEncryptor}
 
   @doc """
