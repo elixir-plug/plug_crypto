@@ -2,7 +2,7 @@ defmodule Plug.Crypto.KeyGeneratorTest do
   use ExUnit.Case, async: true
 
   import Plug.Crypto.KeyGenerator
-  use Bitwise
+  import Bitwise
 
   @max_length bsl(1, 32) - 1
 
