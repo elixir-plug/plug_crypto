@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.3 (2022-08-19)
+
+  * Remove warnings on Elixir v1.14
+
+## v1.2.2 (2021-03-25)
+
+  * Remove warnings on Elixir v1.12
+
 ## v1.2.1 (2021-02-17)
 
   * Add support for Erlang/OTP 24
