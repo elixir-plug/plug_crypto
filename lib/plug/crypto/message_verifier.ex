@@ -77,7 +77,7 @@ defmodule Plug.Crypto.MessageVerifier do
 
   defp decode_token(token) do
     with [protected, payload, signature] <- String.split(token, ".", parts: 3),
-         plain_text = protected <> "." <> payload,
+         plain_text = [protected, ?., payload],
          {:ok, protected} <- Base.url_decode64(protected, padding: false),
          {:ok, payload} <- Base.url_decode64(payload, padding: false),
          {:ok, signature} <- Base.url_decode64(signature, padding: false) do
