@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.5 (2023-03-10)
+
+  * Allow AAD to be given as iolist
+
 ## v1.2.4 (2023-03-10)
 
   * Allow AAD to be given as argument on message encryptor
