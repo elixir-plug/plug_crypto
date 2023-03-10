@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.4 (2023-03-10)
+
+  * Allow AAD to be given as argument on message encryptor
+
 ## v1.2.3 (2022-08-19)
 
   * Remove warnings on Elixir v1.14
