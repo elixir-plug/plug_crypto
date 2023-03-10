@@ -1,7 +1,7 @@
 defmodule Plug.Crypto.MixProject do
   use Mix.Project
 
-  @version "1.2.4"
+  @version "1.2.5"
   @description "Crypto-related functionality for the web"
   @source_url "https://github.com/elixir-plug/plug_crypto"
 
