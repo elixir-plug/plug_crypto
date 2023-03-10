@@ -34,7 +34,7 @@ defmodule Plug.Crypto.MessageEncryptor do
   It defaults to "A128GCM" for backwards compatibility.
   """
   def encrypt(message, aad \\ "A128GCM", secret, sign_secret)
-      when is_binary(message) and is_binary(aad) and byte_size(secret) > 0 and
+      when is_binary(message) and (is_binary(aad) or is_list(aad)) and byte_size(secret) > 0 and
              is_binary(sign_secret) do
     aes128_gcm_encrypt(message, aad, secret, sign_secret)
   rescue
@@ -45,7 +45,7 @@ defmodule Plug.Crypto.MessageEncryptor do
   Decrypts a message using authenticated encryption.
   """
   def decrypt(encrypted, aad \\ "A128GCM", secret, sign_secret)
-      when is_binary(encrypted) and is_binary(aad) and byte_size(secret) > 0 and
+      when is_binary(encrypted) and (is_binary(aad) or is_list(aad)) and byte_size(secret) > 0 and
              is_binary(sign_secret) do
     aes128_gcm_decrypt(encrypted, aad, secret, sign_secret)
   rescue

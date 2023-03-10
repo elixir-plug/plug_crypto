@@ -11,7 +11,7 @@ defmodule Plug.Crypto.MessageEncryptorTest do
 
   test "it encrypts/decrypts a message" do
     data = <<0, "hełłoworld", 0>>
-    encrypted = ME.encrypt(<<0, "hełłoworld", 0>>, "right aad", @right, @right)
+    encrypted = ME.encrypt(data, "right aad", @right, @right)
 
     decrypted = ME.decrypt(encrypted, "right aad", @wrong, @wrong)
     assert decrypted == :error
@@ -27,6 +27,12 @@ defmodule Plug.Crypto.MessageEncryptorTest do
 
     decrypted = ME.decrypt(encrypted, "right aad", @right, @right)
     assert decrypted == {:ok, data}
+  end
+
+  test "it encrypts/decrypts with iodata aad" do
+    data = <<0, "hełłoworld", 0>>
+    encrypted = ME.encrypt(data, ["right", ?\s, "aad"], @right, @right)
+    assert ME.decrypt(encrypted, ["right", ?\s, "aad"], @right, @right) == {:ok, data}
   end
 
   test "it uses only the first 32 bytes to encrypt/decrypt" do
