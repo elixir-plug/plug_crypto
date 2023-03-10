@@ -13,13 +13,13 @@ defmodule Plug.Crypto.MessageEncryptorTest do
     data = <<0, "hełłoworld", 0>>
     encrypted = ME.encrypt(<<0, "hełłoworld", 0>>, "right aad", @right, @right)
 
-    decrypted = ME.decrypt(encrypted, @wrong, @wrong)
+    decrypted = ME.decrypt(encrypted, "right aad", @wrong, @wrong)
     assert decrypted == :error
 
-    decrypted = ME.decrypt(encrypted, @right, @wrong)
+    decrypted = ME.decrypt(encrypted, "right aad", @right, @wrong)
     assert decrypted == :error
 
-    decrypted = ME.decrypt(encrypted, @wrong, @right)
+    decrypted = ME.decrypt(encrypted, "right aad", @wrong, @right)
     assert decrypted == :error
 
     decrypted = ME.decrypt(encrypted, "wrong aad", @right, @right)
