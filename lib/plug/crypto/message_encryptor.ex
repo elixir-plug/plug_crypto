@@ -29,10 +29,14 @@ defmodule Plug.Crypto.MessageEncryptor do
 
   @doc """
   Encrypts a message using authenticated encryption.
+
+  A custom authentication message can be provided.
+  It defaults to "A128GCM" for backwards compatibility.
   """
-  def encrypt(message, secret, sign_secret)
-      when is_binary(message) and byte_size(secret) > 0 and is_binary(sign_secret) do
-    aes128_gcm_encrypt(message, secret, sign_secret)
+  def encrypt(message, aad \\ "A128GCM", secret, sign_secret)
+      when is_binary(message) and is_binary(aad) and byte_size(secret) > 0 and
+             is_binary(sign_secret) do
+    aes128_gcm_encrypt(message, aad, secret, sign_secret)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
@@ -40,9 +44,10 @@ defmodule Plug.Crypto.MessageEncryptor do
   @doc """
   Decrypts a message using authenticated encryption.
   """
-  def decrypt(encrypted, secret, sign_secret)
-      when is_binary(encrypted) and byte_size(secret) > 0 and is_binary(sign_secret) do
-    aes128_gcm_decrypt(encrypted, secret, sign_secret)
+  def decrypt(encrypted, aad \\ "A128GCM", secret, sign_secret)
+      when is_binary(encrypted) and is_binary(aad) and byte_size(secret) > 0 and
+             is_binary(sign_secret) do
+    aes128_gcm_decrypt(encrypted, aad, secret, sign_secret)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
@@ -51,19 +56,18 @@ defmodule Plug.Crypto.MessageEncryptor do
   #
   # A random 128-bit content encryption key (CEK) is generated for
   # every message which is then encrypted with `aes_gcm_key_wrap/3`.
-  defp aes128_gcm_encrypt(plain_text, secret, sign_secret) when bit_size(secret) > 256 do
-    aes128_gcm_encrypt(plain_text, binary_part(secret, 0, 32), sign_secret)
+  defp aes128_gcm_encrypt(plain_text, aad, secret, sign_secret) when bit_size(secret) > 256 do
+    aes128_gcm_encrypt(plain_text, aad, binary_part(secret, 0, 32), sign_secret)
   end
 
-  defp aes128_gcm_encrypt(plain_text, secret, sign_secret)
+  defp aes128_gcm_encrypt(plain_text, aad, secret, sign_secret)
        when is_binary(plain_text) and bit_size(secret) in [128, 192, 256] and
               is_binary(sign_secret) do
     key = :crypto.strong_rand_bytes(16)
     iv = :crypto.strong_rand_bytes(12)
-    aad = "A128GCM"
     {cipher_text, cipher_tag} = block_encrypt(:aes_gcm, key, iv, {aad, plain_text})
     encrypted_key = aes_gcm_key_wrap(key, secret, sign_secret)
-    encode_token(aad, encrypted_key, iv, cipher_text, cipher_tag)
+    encode_token("A128GCM", encrypted_key, iv, cipher_text, cipher_tag)
   end
 
   # Verifies and decrypts a message using AES128-GCM mode.
@@ -72,15 +76,15 @@ defmodule Plug.Crypto.MessageEncryptor do
   #
   # The encrypted content encryption key (CEK) is decrypted
   # with `aes_gcm_key_unwrap/3`.
-  defp aes128_gcm_decrypt(cipher_text, secret, sign_secret) when bit_size(secret) > 256 do
-    aes128_gcm_decrypt(cipher_text, binary_part(secret, 0, 32), sign_secret)
+  defp aes128_gcm_decrypt(cipher_text, aad, secret, sign_secret) when bit_size(secret) > 256 do
+    aes128_gcm_decrypt(cipher_text, aad, binary_part(secret, 0, 32), sign_secret)
   end
 
-  defp aes128_gcm_decrypt(cipher_text, secret, sign_secret)
+  defp aes128_gcm_decrypt(cipher_text, aad, secret, sign_secret)
        when is_binary(cipher_text) and bit_size(secret) in [128, 192, 256] and
               is_binary(sign_secret) do
     case decode_token(cipher_text) do
-      {aad = "A128GCM", encrypted_key, iv, cipher_text, cipher_tag}
+      {"A128GCM", encrypted_key, iv, cipher_text, cipher_tag}
       when bit_size(iv) === 96 and bit_size(cipher_tag) === 128 ->
         encrypted_key
         |> aes_gcm_key_unwrap(secret, sign_secret)
@@ -120,7 +124,6 @@ defmodule Plug.Crypto.MessageEncryptor do
       :error, :notsup -> raise_notsup(cipher)
     end
 
-    # TODO: remove when we reqwuire OTP 24 (since it has similar alias handling)
     defp cipher_alias(:aes_gcm, 128), do: :aes_128_gcm
     defp cipher_alias(:aes_gcm, 192), do: :aes_192_gcm
     defp cipher_alias(:aes_gcm, 256), do: :aes_256_gcm
