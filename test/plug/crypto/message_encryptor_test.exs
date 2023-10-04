@@ -7,26 +7,13 @@ defmodule Plug.Crypto.MessageEncryptorTest do
 
   @right String.duplicate("abcdefgh", 4)
   @wrong String.duplicate("12345678", 4)
-  @large String.duplicate(@right, 2)
 
   test "it encrypts/decrypts a message" do
     data = <<0, "hełłoworld", 0>>
-    encrypted = ME.encrypt(data, "right aad", @right, @right)
-
-    decrypted = ME.decrypt(encrypted, "right aad", @wrong, @wrong)
-    assert decrypted == :error
-
-    decrypted = ME.decrypt(encrypted, "right aad", @right, @wrong)
-    assert decrypted == :error
-
-    decrypted = ME.decrypt(encrypted, "right aad", @wrong, @right)
-    assert decrypted == :error
-
-    decrypted = ME.decrypt(encrypted, "wrong aad", @right, @right)
-    assert decrypted == :error
-
-    decrypted = ME.decrypt(encrypted, "right aad", @right, @right)
-    assert decrypted == {:ok, data}
+    encrypted = ME.encrypt(data, "right aad", @right, "UNUSED")
+    assert ME.decrypt(encrypted, "right aad", @wrong, "UNUSED") == :error
+    assert ME.decrypt(encrypted, "wrong aad", @right, "UNUSED") == :error
+    assert ME.decrypt(encrypted, "right aad", @right, "UNUSED") == {:ok, data}
   end
 
   test "it encrypts/decrypts with iodata aad" do
@@ -35,34 +22,14 @@ defmodule Plug.Crypto.MessageEncryptorTest do
     assert ME.decrypt(encrypted, ["right", ?\s, "aad"], @right, @right) == {:ok, data}
   end
 
-  test "it uses only the first 32 bytes to encrypt/decrypt" do
-    data = <<0, "helloworld", 0>>
-    encrypted = ME.encrypt(<<0, "helloworld", 0>>, @large, @large)
+  @old_message "QTEyOEdDTQ.L85cCXPvSqswNJoxmP5QTopFY83qCPj9czxkwct8b0HDHdC8Qwruhkq3SWw.mmqfbc2dfaMMi6Xi.n1qvYhAUYI0r7-QB6Vw.0jV2tT3U-AQMAQSch2rNsw"
 
-    decrypted = ME.decrypt(encrypted, @large, @large)
-    assert decrypted == {:ok, data}
-
-    decrypted = ME.decrypt(encrypted, @right, @large)
-    assert decrypted == {:ok, data}
-
-    decrypted = ME.decrypt(encrypted, @large, @right)
-    assert decrypted == :error
-
-    decrypted = ME.decrypt(encrypted, @right, @right)
-    assert decrypted == :error
-
-    encrypted = ME.encrypt(<<0, "helloworld", 0>>, @right, @large)
-
-    decrypted = ME.decrypt(encrypted, @large, @large)
-    assert decrypted == {:ok, data}
-
-    decrypted = ME.decrypt(encrypted, @right, @large)
-    assert decrypted == {:ok, data}
-
-    decrypted = ME.decrypt(encrypted, @large, @right)
-    assert decrypted == :error
-
-    decrypted = ME.decrypt(encrypted, @right, @right)
-    assert decrypted == :error
+  test "it decodes messages from earlier versions" do
+    data = <<0, "hełłoworld", 0>>
+    assert ME.decrypt(@old_message, "right aad", @right, @right) == {:ok, data}
+    assert ME.decrypt(@old_message, "wrong aad", @right, @right) == :error
+    assert ME.decrypt(@old_message, "right aad", @wrong, @right) == :error
+    assert ME.decrypt(@old_message, "right aad", @right, @wrong) == :error
+    assert ME.decrypt(@old_message, "right aad", @wrong, @wrong) == :error
   end
 end

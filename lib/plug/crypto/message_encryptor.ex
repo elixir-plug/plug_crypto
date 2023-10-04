@@ -15,14 +15,11 @@ defmodule Plug.Crypto.MessageEncryptor do
 
       iex> secret_key_base = "072d1e0157c008193fe48a670cce031faa4e..."
       ...> encrypted_cookie_salt = "encrypted cookie"
-      ...> encrypted_signed_cookie_salt = "signed encrypted cookie"
-      ...>
       ...> secret = KeyGenerator.generate(secret_key_base, encrypted_cookie_salt)
-      ...> sign_secret = KeyGenerator.generate(secret_key_base, encrypted_signed_cookie_salt)
       ...>
       ...> data = "José"
-      ...> encrypted = MessageEncryptor.encrypt(data, secret, sign_secret)
-      ...> MessageEncryptor.decrypt(encrypted, secret, sign_secret)
+      ...> encrypted = MessageEncryptor.encrypt(data, secret, "UNUSED")
+      ...> MessageEncryptor.decrypt(encrypted, secret, "UNUSED")
       {:ok, "José"}
 
   """
@@ -30,13 +27,16 @@ defmodule Plug.Crypto.MessageEncryptor do
   @doc """
   Encrypts a message using authenticated encryption.
 
+  The `sign_secret` is currently only used on decryption
+  for backwards compatibility.
+
   A custom authentication message can be provided.
   It defaults to "A128GCM" for backwards compatibility.
   """
   def encrypt(message, aad \\ "A128GCM", secret, sign_secret)
       when is_binary(message) and (is_binary(aad) or is_list(aad)) and byte_size(secret) > 0 and
              is_binary(sign_secret) do
-    aes128_gcm_encrypt(message, aad, secret, sign_secret)
+    aes128_gcm_encrypt(message, aad, secret)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
@@ -56,18 +56,11 @@ defmodule Plug.Crypto.MessageEncryptor do
   #
   # A random 128-bit content encryption key (CEK) is generated for
   # every message which is then encrypted with `aes_gcm_key_wrap/3`.
-  defp aes128_gcm_encrypt(plain_text, aad, secret, sign_secret) when bit_size(secret) > 256 do
-    aes128_gcm_encrypt(plain_text, aad, binary_part(secret, 0, 32), sign_secret)
-  end
-
-  defp aes128_gcm_encrypt(plain_text, aad, secret, sign_secret)
-       when is_binary(plain_text) and bit_size(secret) in [128, 192, 256] and
-              is_binary(sign_secret) do
-    key = :crypto.strong_rand_bytes(16)
+  defp aes128_gcm_encrypt(plain_text, aad, secret)
+       when is_binary(plain_text) and bit_size(secret) in [128, 192, 256] do
     iv = :crypto.strong_rand_bytes(12)
-    {cipher_text, cipher_tag} = block_encrypt(:aes_gcm, key, iv, {aad, plain_text})
-    encrypted_key = aes_gcm_key_wrap(key, secret, sign_secret)
-    encode_token("A128GCM", encrypted_key, iv, cipher_text, cipher_tag)
+    {cipher_text, cipher_tag} = block_encrypt(:aes_gcm, secret, iv, {aad, plain_text})
+    encode_token("A128GCM", iv, cipher_text, cipher_tag)
   end
 
   # Verifies and decrypts a message using AES128-GCM mode.
@@ -76,31 +69,38 @@ defmodule Plug.Crypto.MessageEncryptor do
   #
   # The encrypted content encryption key (CEK) is decrypted
   # with `aes_gcm_key_unwrap/3`.
-  defp aes128_gcm_decrypt(cipher_text, aad, secret, sign_secret) when bit_size(secret) > 256 do
-    aes128_gcm_decrypt(cipher_text, aad, binary_part(secret, 0, 32), sign_secret)
-  end
-
   defp aes128_gcm_decrypt(cipher_text, aad, secret, sign_secret)
        when is_binary(cipher_text) and bit_size(secret) in [128, 192, 256] and
               is_binary(sign_secret) do
-    case decode_token(cipher_text) do
-      {"A128GCM", encrypted_key, iv, cipher_text, cipher_tag}
-      when bit_size(iv) === 96 and bit_size(cipher_tag) === 128 ->
-        encrypted_key
-        |> aes_gcm_key_unwrap(secret, sign_secret)
-        |> case do
-          {:ok, key} ->
-            block_decrypt(:aes_gcm, key, iv, {aad, cipher_text, cipher_tag})
-
-          _ ->
-            :error
+    case String.split(cipher_text, ".", parts: 5) do
+      # Messages from Plug.Crypto v1.x
+      [protected, encrypted_key, iv, cipher_text, cipher_tag] ->
+        with {:ok, "A128GCM"} <- Base.url_decode64(protected, padding: false),
+             {:ok, encrypted_key} <- Base.url_decode64(encrypted_key, padding: false),
+             {:ok, iv} when bit_size(iv) === 96 <- Base.url_decode64(iv, padding: false),
+             {:ok, cipher_text} <- Base.url_decode64(cipher_text, padding: false),
+             {:ok, cipher_tag} when bit_size(cipher_tag) === 128 <-
+               Base.url_decode64(cipher_tag, padding: false),
+             {:ok, key} <- aes_gcm_key_unwrap(encrypted_key, secret, sign_secret),
+             plain_text when is_binary(plain_text) <-
+               block_decrypt(:aes_gcm, key, iv, {aad, cipher_text, cipher_tag}) do
+          {:ok, plain_text}
+        else
+          _ -> :error
         end
-        |> case do
-          plain_text when is_binary(plain_text) ->
-            {:ok, plain_text}
 
-          _ ->
-            :error
+      # Messages from Plug.Crypto v2.x
+      [protected, iv, cipher_text, cipher_tag] ->
+        with {:ok, "A128GCM"} <- Base.url_decode64(protected, padding: false),
+             {:ok, iv} when bit_size(iv) === 96 <- Base.url_decode64(iv, padding: false),
+             {:ok, cipher_text} <- Base.url_decode64(cipher_text, padding: false),
+             {:ok, cipher_tag} when bit_size(cipher_tag) === 128 <-
+               Base.url_decode64(cipher_tag, padding: false),
+             plain_text when is_binary(plain_text) <-
+               block_decrypt(:aes_gcm, secret, iv, {aad, cipher_text, cipher_tag}) do
+          {:ok, plain_text}
+        else
+          _ -> :error
         end
 
       _ ->
@@ -132,32 +132,11 @@ defmodule Plug.Crypto.MessageEncryptor do
             "Please make sure it was compiled with the correct OpenSSL/BoringSSL bindings"
   end
 
-  # Wraps a decrypted content encryption key (CEK) with secret and
-  # sign_secret using AES GCM mode. Accepts keys of 128, 192, or
-  # 256 bits based on the length of the secret key.
-  #
-  # See: https://tools.ietf.org/html/rfc7518#section-4.7
-  defp aes_gcm_key_wrap(cek, secret, sign_secret) when bit_size(secret) > 256 do
-    aes_gcm_key_wrap(cek, binary_part(secret, 0, 32), sign_secret)
-  end
-
-  defp aes_gcm_key_wrap(cek, secret, sign_secret)
-       when bit_size(cek) in [128, 192, 256] and bit_size(secret) in [128, 192, 256] and
-              is_binary(sign_secret) do
-    iv = :crypto.strong_rand_bytes(12)
-    {cipher_text, cipher_tag} = block_encrypt(:aes_gcm, secret, iv, {sign_secret, cek})
-    cipher_text <> cipher_tag <> iv
-  end
-
   # Unwraps an encrypted content encryption key (CEK) with secret and
   # sign_secret using AES GCM mode. Accepts keys of 128, 192, or 256
   # bits based on the length of the secret key.
   #
   # See: https://tools.ietf.org/html/rfc7518#section-4.7
-  defp aes_gcm_key_unwrap(wrapped_cek, secret, sign_secret) when bit_size(secret) > 256 do
-    aes_gcm_key_unwrap(wrapped_cek, binary_part(secret, 0, 32), sign_secret)
-  end
-
   defp aes_gcm_key_unwrap(wrapped_cek, secret, sign_secret)
        when bit_size(secret) in [128, 192, 256] and is_binary(sign_secret) do
     wrapped_cek
@@ -175,37 +154,18 @@ defmodule Plug.Crypto.MessageEncryptor do
         :error
     end
     |> case do
-      cek when bit_size(cek) in [128, 192, 256] ->
-        {:ok, cek}
-
-      _ ->
-        :error
+      cek when bit_size(cek) in [128, 192, 256] -> {:ok, cek}
+      _ -> :error
     end
   end
 
-  defp encode_token(protected, encrypted_key, iv, cipher_text, cipher_tag) do
+  defp encode_token(protected, iv, cipher_text, cipher_tag) do
     Base.url_encode64(protected, padding: false)
-    |> Kernel.<>(".")
-    |> Kernel.<>(Base.url_encode64(encrypted_key, padding: false))
     |> Kernel.<>(".")
     |> Kernel.<>(Base.url_encode64(iv, padding: false))
     |> Kernel.<>(".")
     |> Kernel.<>(Base.url_encode64(cipher_text, padding: false))
     |> Kernel.<>(".")
     |> Kernel.<>(Base.url_encode64(cipher_tag, padding: false))
-  end
-
-  defp decode_token(token) do
-    with [protected, encrypted_key, iv, cipher_text, cipher_tag] <-
-           String.split(token, ".", parts: 5),
-         {:ok, protected} <- Base.url_decode64(protected, padding: false),
-         {:ok, encrypted_key} <- Base.url_decode64(encrypted_key, padding: false),
-         {:ok, iv} <- Base.url_decode64(iv, padding: false),
-         {:ok, cipher_text} <- Base.url_decode64(cipher_text, padding: false),
-         {:ok, cipher_tag} <- Base.url_decode64(cipher_tag, padding: false) do
-      {protected, encrypted_key, iv, cipher_text, cipher_tag}
-    else
-      _ -> :error
-    end
   end
 end
