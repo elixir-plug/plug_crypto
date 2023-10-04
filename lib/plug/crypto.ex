@@ -24,12 +24,6 @@ defmodule Plug.Crypto do
   def prune_args_from_stacktrace(stacktrace) when is_list(stacktrace),
     do: stacktrace
 
-  @doc false
-  @deprecated "Use non_executable_binary_to_term/2"
-  def safe_binary_to_term(binary, opts \\ []) do
-    non_executable_binary_to_term(binary, opts)
-  end
-
   @doc """
   A restricted version of `:erlang.binary_to_term/2` that forbids
   *executable* terms, such as anonymous functions.
@@ -202,17 +196,9 @@ defmodule Plug.Crypto do
   """
   def encrypt(key_base, secret, data, opts \\ [])
       when is_binary(key_base) and is_binary(secret) do
-    encrypt(key_base, secret, nil, data, opts)
-  end
-
-  @doc false
-  def encrypt(key_base, secret, salt, data, opts) do
     data
     |> encode(opts)
-    |> MessageEncryptor.encrypt(
-      get_secret(key_base, secret, opts),
-      get_secret(key_base, salt, opts)
-    )
+    |> MessageEncryptor.encrypt(get_secret(key_base, secret, opts), "")
   end
 
   defp encode(data, opts) do
@@ -306,23 +292,20 @@ defmodule Plug.Crypto do
 
   """
   def decrypt(key_base, secret, token, opts \\ [])
+
+  def decrypt(key_base, secret, nil, opts)
       when is_binary(key_base) and is_binary(secret) and is_list(opts) do
-    decrypt(key_base, secret, nil, token, opts)
+    {:error, :missing}
   end
 
-  @doc false
-  def decrypt(key_base, secret, salt, token, opts) when is_binary(token) do
+  def decrypt(key_base, secret, token, opts)
+      when is_binary(key_base) and is_binary(secret) and is_list(opts) do
     secret = get_secret(key_base, secret, opts)
-    salt = get_secret(key_base, salt, opts)
 
-    case MessageEncryptor.decrypt(token, secret, salt) do
+    case MessageEncryptor.decrypt(token, secret, "") do
       {:ok, message} -> decode(message, opts)
       :error -> {:error, :invalid}
     end
-  end
-
-  def decrypt(_key_base, _secret, _salt, nil, _opts) do
-    {:error, :missing}
   end
 
   defp decode(message, opts) do
@@ -345,10 +328,6 @@ defmodule Plug.Crypto do
   ## Helpers
 
   # Gathers configuration and generates the key secrets and signing secrets.
-  defp get_secret(_secret_key_base, nil, _opts) do
-    ""
-  end
-
   defp get_secret(secret_key_base, salt, opts) do
     iterations = Keyword.get(opts, :key_iterations, 1000)
     length = Keyword.get(opts, :key_length, 32)
