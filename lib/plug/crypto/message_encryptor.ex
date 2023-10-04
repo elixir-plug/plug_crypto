@@ -108,39 +108,24 @@ defmodule Plug.Crypto.MessageEncryptor do
     end
   end
 
-  # TODO: remove when we require OTP 22
-  if Code.ensure_loaded?(:crypto) and function_exported?(:crypto, :crypto_one_time_aead, 6) do
-    defp block_encrypt(cipher, key, iv, {aad, payload}) do
-      cipher = cipher_alias(cipher, bit_size(key))
-      :crypto.crypto_one_time_aead(cipher, key, iv, payload, aad, true)
-    catch
-      :error, :notsup -> raise_notsup(cipher)
-    end
-
-    defp block_decrypt(cipher, key, iv, {aad, payload, tag}) do
-      cipher = cipher_alias(cipher, bit_size(key))
-      :crypto.crypto_one_time_aead(cipher, key, iv, payload, aad, tag, false)
-    catch
-      :error, :notsup -> raise_notsup(cipher)
-    end
-
-    defp cipher_alias(:aes_gcm, 128), do: :aes_128_gcm
-    defp cipher_alias(:aes_gcm, 192), do: :aes_192_gcm
-    defp cipher_alias(:aes_gcm, 256), do: :aes_256_gcm
-    defp cipher_alias(other, _), do: other
-  else
-    defp block_encrypt(cipher, key, iv, payload) do
-      :crypto.block_encrypt(cipher, key, iv, payload)
-    catch
-      :error, :notsup -> raise_notsup(cipher)
-    end
-
-    defp block_decrypt(cipher, key, iv, payload) do
-      :crypto.block_decrypt(cipher, key, iv, payload)
-    catch
-      :error, :notsup -> raise_notsup(cipher)
-    end
+  defp block_encrypt(cipher, key, iv, {aad, payload}) do
+    cipher = cipher_alias(cipher, bit_size(key))
+    :crypto.crypto_one_time_aead(cipher, key, iv, payload, aad, true)
+  catch
+    :error, :notsup -> raise_notsup(cipher)
   end
+
+  defp block_decrypt(cipher, key, iv, {aad, payload, tag}) do
+    cipher = cipher_alias(cipher, bit_size(key))
+    :crypto.crypto_one_time_aead(cipher, key, iv, payload, aad, tag, false)
+  catch
+    :error, :notsup -> raise_notsup(cipher)
+  end
+
+  defp cipher_alias(:aes_gcm, 128), do: :aes_128_gcm
+  defp cipher_alias(:aes_gcm, 192), do: :aes_192_gcm
+  defp cipher_alias(:aes_gcm, 256), do: :aes_256_gcm
+  defp cipher_alias(other, _), do: other
 
   defp raise_notsup(algo) do
     raise "the algorithm #{inspect(algo)} is not supported by your Erlang/OTP installation. " <>
@@ -148,7 +133,7 @@ defmodule Plug.Crypto.MessageEncryptor do
   end
 
   # Wraps a decrypted content encryption key (CEK) with secret and
-  # sign_secret using AES GCM mode. Accepts keys of 128, 192, or 
+  # sign_secret using AES GCM mode. Accepts keys of 128, 192, or
   # 256 bits based on the length of the secret key.
   #
   # See: https://tools.ietf.org/html/rfc7518#section-4.7
@@ -165,7 +150,7 @@ defmodule Plug.Crypto.MessageEncryptor do
   end
 
   # Unwraps an encrypted content encryption key (CEK) with secret and
-  # sign_secret using AES GCM mode. Accepts keys of 128, 192, or 256 
+  # sign_secret using AES GCM mode. Accepts keys of 128, 192, or 256
   # bits based on the length of the secret key.
   #
   # See: https://tools.ietf.org/html/rfc7518#section-4.7
