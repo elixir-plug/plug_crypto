@@ -9,7 +9,7 @@ defmodule Plug.Crypto.MessageEncryptor do
   This can be used in situations similar to the `Plug.Crypto.MessageVerifier`,
   but where you don't want users to be able to determine the value of the payload.
 
-  The current algorithm used is AES-GCM-128.
+  The current algorithm used is ChaCha20-and-Poly1305.
 
   ## Example
 
@@ -34,9 +34,12 @@ defmodule Plug.Crypto.MessageEncryptor do
   It defaults to "A128GCM" for backwards compatibility.
   """
   def encrypt(message, aad \\ "A128GCM", secret, sign_secret)
-      when is_binary(message) and (is_binary(aad) or is_list(aad)) and byte_size(secret) > 0 and
+      when is_binary(message) and (is_binary(aad) or is_list(aad)) and
+             bit_size(secret) in [128, 192, 256] and
              is_binary(sign_secret) do
-    aes128_gcm_encrypt(message, aad, secret)
+    iv = :crypto.strong_rand_bytes(12)
+    {cipher_text, cipher_tag} = block_encrypt(:chacha20_poly1305, secret, iv, {aad, message})
+    encode_token("C20P1305", iv, cipher_text, cipher_tag)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
@@ -45,34 +48,24 @@ defmodule Plug.Crypto.MessageEncryptor do
   Decrypts a message using authenticated encryption.
   """
   def decrypt(encrypted, aad \\ "A128GCM", secret, sign_secret)
-      when is_binary(encrypted) and (is_binary(aad) or is_list(aad)) and byte_size(secret) > 0 and
+      when is_binary(encrypted) and (is_binary(aad) or is_list(aad)) and
+             bit_size(secret) in [128, 192, 256] and
              is_binary(sign_secret) do
-    aes128_gcm_decrypt(encrypted, aad, secret, sign_secret)
-  rescue
-    e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
-  end
+    case :binary.split(encrypted, ".", [:global]) do
+      # Messages from Plug.Crypto v2.x
+      [protected, iv, cipher_text, cipher_tag] ->
+        with {:ok, "C20P1305"} <- Base.url_decode64(protected, padding: false),
+             {:ok, iv} when bit_size(iv) === 96 <- Base.url_decode64(iv, padding: false),
+             {:ok, cipher_text} <- Base.url_decode64(cipher_text, padding: false),
+             {:ok, cipher_tag} when bit_size(cipher_tag) === 128 <-
+               Base.url_decode64(cipher_tag, padding: false),
+             plain_text when is_binary(plain_text) <-
+               block_decrypt(:chacha20_poly1305, secret, iv, {aad, cipher_text, cipher_tag}) do
+          {:ok, plain_text}
+        else
+          _ -> :error
+        end
 
-  # Encrypts and authenticates a message using AES128-GCM mode.
-  #
-  # A random 128-bit content encryption key (CEK) is generated for
-  # every message which is then encrypted with `aes_gcm_key_wrap/3`.
-  defp aes128_gcm_encrypt(plain_text, aad, secret)
-       when is_binary(plain_text) and bit_size(secret) in [128, 192, 256] do
-    iv = :crypto.strong_rand_bytes(12)
-    {cipher_text, cipher_tag} = block_encrypt(:aes_gcm, secret, iv, {aad, plain_text})
-    encode_token("A128GCM", iv, cipher_text, cipher_tag)
-  end
-
-  # Verifies and decrypts a message using AES128-GCM mode.
-  #
-  # Decryption will never be performed prior to verification.
-  #
-  # The encrypted content encryption key (CEK) is decrypted
-  # with `aes_gcm_key_unwrap/3`.
-  defp aes128_gcm_decrypt(cipher_text, aad, secret, sign_secret)
-       when is_binary(cipher_text) and bit_size(secret) in [128, 192, 256] and
-              is_binary(sign_secret) do
-    case String.split(cipher_text, ".", parts: 5) do
       # Messages from Plug.Crypto v1.x
       [protected, encrypted_key, iv, cipher_text, cipher_tag] ->
         with {:ok, "A128GCM"} <- Base.url_decode64(protected, padding: false),
@@ -89,23 +82,11 @@ defmodule Plug.Crypto.MessageEncryptor do
           _ -> :error
         end
 
-      # Messages from Plug.Crypto v2.x
-      [protected, iv, cipher_text, cipher_tag] ->
-        with {:ok, "A128GCM"} <- Base.url_decode64(protected, padding: false),
-             {:ok, iv} when bit_size(iv) === 96 <- Base.url_decode64(iv, padding: false),
-             {:ok, cipher_text} <- Base.url_decode64(cipher_text, padding: false),
-             {:ok, cipher_tag} when bit_size(cipher_tag) === 128 <-
-               Base.url_decode64(cipher_tag, padding: false),
-             plain_text when is_binary(plain_text) <-
-               block_decrypt(:aes_gcm, secret, iv, {aad, cipher_text, cipher_tag}) do
-          {:ok, plain_text}
-        else
-          _ -> :error
-        end
-
       _ ->
         :error
     end
+  rescue
+    e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
 
   defp block_encrypt(cipher, key, iv, {aad, payload}) do
