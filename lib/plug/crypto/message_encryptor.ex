@@ -35,7 +35,7 @@ defmodule Plug.Crypto.MessageEncryptor do
   """
   def encrypt(message, aad \\ "A128GCM", secret, sign_secret)
       when is_binary(message) and (is_binary(aad) or is_list(aad)) and
-             byte_size(secret) == 32 and
+             bit_size(secret) in [128, 192, 256] and
              is_binary(sign_secret) do
     iv = :crypto.strong_rand_bytes(12)
     {cipher_text, cipher_tag} = block_encrypt(:chacha20_poly1305, secret, iv, {aad, message})
