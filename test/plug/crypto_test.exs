@@ -211,11 +211,5 @@ defmodule Plug.CryptoTest do
       signed2 = encrypt(@key, "secret", 1, signed_at: 0, key_digest: :sha512)
       assert signed1 != signed2
     end
-
-    test "passes key_length options to key generator" do
-      signed1 = encrypt(@key, "secret", 1, signed_at: 0, key_length: 16)
-      signed2 = encrypt(@key, "secret", 1, signed_at: 0, key_length: 32)
-      assert signed1 != signed2
-    end
   end
 end

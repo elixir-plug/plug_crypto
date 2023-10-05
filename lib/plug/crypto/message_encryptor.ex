@@ -9,7 +9,7 @@ defmodule Plug.Crypto.MessageEncryptor do
   This can be used in situations similar to the `Plug.Crypto.MessageVerifier`,
   but where you don't want users to be able to determine the value of the payload.
 
-  The current algorithm used is ChaCha20-and-Poly1305.
+  The current algorithm used is ChaCha20-Poly1305.
 
   ## Example
 
@@ -35,11 +35,11 @@ defmodule Plug.Crypto.MessageEncryptor do
   """
   def encrypt(message, aad \\ "A128GCM", secret, sign_secret)
       when is_binary(message) and (is_binary(aad) or is_list(aad)) and
-             bit_size(secret) in [128, 192, 256] and
+             byte_size(secret) == 32 and
              is_binary(sign_secret) do
     iv = :crypto.strong_rand_bytes(12)
     {cipher_text, cipher_tag} = block_encrypt(:chacha20_poly1305, secret, iv, {aad, message})
-    encode_token("C20P1305", iv, cipher_text, cipher_tag)
+    encode_token("CP20", iv, cipher_text, cipher_tag)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
@@ -53,9 +53,8 @@ defmodule Plug.Crypto.MessageEncryptor do
              is_binary(sign_secret) do
     case :binary.split(encrypted, ".", [:global]) do
       # Messages from Plug.Crypto v2.x
-      [protected, iv, cipher_text, cipher_tag] ->
-        with {:ok, "C20P1305"} <- Base.url_decode64(protected, padding: false),
-             {:ok, iv} when bit_size(iv) === 96 <- Base.url_decode64(iv, padding: false),
+      ["CP20", iv, cipher_text, cipher_tag] ->
+        with {:ok, iv} when bit_size(iv) === 96 <- Base.url_decode64(iv, padding: false),
              {:ok, cipher_text} <- Base.url_decode64(cipher_text, padding: false),
              {:ok, cipher_tag} when bit_size(cipher_tag) === 128 <-
                Base.url_decode64(cipher_tag, padding: false),
@@ -140,8 +139,8 @@ defmodule Plug.Crypto.MessageEncryptor do
     end
   end
 
-  defp encode_token(protected, iv, cipher_text, cipher_tag) do
-    Base.url_encode64(protected, padding: false)
+  defp encode_token(head, iv, cipher_text, cipher_tag) do
+    head
     |> Kernel.<>(".")
     |> Kernel.<>(Base.url_encode64(iv, padding: false))
     |> Kernel.<>(".")
