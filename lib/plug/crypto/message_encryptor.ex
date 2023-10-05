@@ -9,7 +9,7 @@ defmodule Plug.Crypto.MessageEncryptor do
   This can be used in situations similar to the `Plug.Crypto.MessageVerifier`,
   but where you don't want users to be able to determine the value of the payload.
 
-  The current algorithm used is ChaCha20-Poly1305.
+  The current algorithm used is XChaCha20-Poly1305.
 
   ## Example
 
@@ -35,11 +35,12 @@ defmodule Plug.Crypto.MessageEncryptor do
   """
   def encrypt(message, aad \\ "A128GCM", secret, sign_secret)
       when is_binary(message) and (is_binary(aad) or is_list(aad)) and
-             byte_size(secret) == 32 and
+             bit_size(secret) == 256 and
              is_binary(sign_secret) do
-    iv = :crypto.strong_rand_bytes(12)
-    {cipher_text, cipher_tag} = block_encrypt(:chacha20_poly1305, secret, iv, {aad, message})
-    encode_token("CP20", iv, cipher_text, cipher_tag)
+    iv = :crypto.strong_rand_bytes(24)
+    {subkey, nonce} = xchacha20_subkey_and_nonce(secret, iv)
+    {cipher_text, cipher_tag} = block_encrypt(:chacha20_poly1305, subkey, nonce, {aad, message})
+    encode_token("XCP", iv, cipher_text, cipher_tag)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
@@ -53,13 +54,14 @@ defmodule Plug.Crypto.MessageEncryptor do
              is_binary(sign_secret) do
     case :binary.split(encrypted, ".", [:global]) do
       # Messages from Plug.Crypto v2.x
-      ["CP20", iv, cipher_text, cipher_tag] ->
-        with {:ok, iv} when bit_size(iv) === 96 <- Base.url_decode64(iv, padding: false),
+      ["XCP", iv, cipher_text, cipher_tag] ->
+        with {:ok, iv} when bit_size(iv) === 192 <- Base.url_decode64(iv, padding: false),
+             {subkey, nonce} = xchacha20_subkey_and_nonce(secret, iv),
              {:ok, cipher_text} <- Base.url_decode64(cipher_text, padding: false),
              {:ok, cipher_tag} when bit_size(cipher_tag) === 128 <-
                Base.url_decode64(cipher_tag, padding: false),
              plain_text when is_binary(plain_text) <-
-               block_decrypt(:chacha20_poly1305, secret, iv, {aad, cipher_text, cipher_tag}) do
+               block_decrypt(:chacha20_poly1305, subkey, nonce, {aad, cipher_text, cipher_tag}) do
           {:ok, plain_text}
         else
           _ -> :error
@@ -110,6 +112,60 @@ defmodule Plug.Crypto.MessageEncryptor do
   defp raise_notsup(algo) do
     raise "the algorithm #{inspect(algo)} is not supported by your Erlang/OTP installation. " <>
             "Please make sure it was compiled with the correct OpenSSL/BoringSSL bindings"
+  end
+
+  defp xchacha20_subkey_and_nonce(<<key::256-bits>>, <<nonce0::128-bits, nonce1::64-bits>>) do
+    subkey = hchacha20(key, nonce0)
+    nonce = <<0::32, nonce1::64-bits>>
+    {subkey, nonce}
+  end
+
+  defp hchacha20(<<key::256-bits>>, <<nonce::128-bits>>) do
+    # ChaCha20 has an internal blocksize of 512-bits (64-bytes).
+    # Let's use a Mask of random 64-bytes to blind the intermediate keystream.
+    mask = <<mask_h::128-bits, _::256-bits, mask_t::128-bits>> = :crypto.strong_rand_bytes(64)
+
+    <<state_2h::128-bits, _::256-bits, state_2t::128-bits>> =
+      :crypto.crypto_one_time(:chacha20, key, nonce, mask, true)
+
+    <<
+      x00::32-unsigned-little-integer,
+      x01::32-unsigned-little-integer,
+      x02::32-unsigned-little-integer,
+      x03::32-unsigned-little-integer,
+      x12::32-unsigned-little-integer,
+      x13::32-unsigned-little-integer,
+      x14::32-unsigned-little-integer,
+      x15::32-unsigned-little-integer
+    >> =
+      :crypto.exor(
+        <<mask_h::128-bits, mask_t::128-bits>>,
+        <<state_2h::128-bits, state_2t::128-bits>>
+      )
+
+    ## The final step of ChaCha20 is `State2 = State0 + State1', so let's
+    ## recover `State1' with subtraction: `State1 = State2 - State0'
+    <<
+      y00::32-unsigned-little-integer,
+      y01::32-unsigned-little-integer,
+      y02::32-unsigned-little-integer,
+      y03::32-unsigned-little-integer,
+      y12::32-unsigned-little-integer,
+      y13::32-unsigned-little-integer,
+      y14::32-unsigned-little-integer,
+      y15::32-unsigned-little-integer
+    >> = <<"expand 32-byte k", nonce::128-bits>>
+
+    <<
+      x00 - y00::32-unsigned-little-integer,
+      x01 - y01::32-unsigned-little-integer,
+      x02 - y02::32-unsigned-little-integer,
+      x03 - y03::32-unsigned-little-integer,
+      x12 - y12::32-unsigned-little-integer,
+      x13 - y13::32-unsigned-little-integer,
+      x14 - y14::32-unsigned-little-integer,
+      x15 - y15::32-unsigned-little-integer
+    >>
   end
 
   # Unwraps an encrypted content encryption key (CEK) with secret and
