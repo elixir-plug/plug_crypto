@@ -40,7 +40,7 @@ defmodule Plug.Crypto.MessageEncryptor do
     iv = :crypto.strong_rand_bytes(24)
     {subkey, nonce} = xchacha20_subkey_and_nonce(secret, iv)
     {cipher_text, cipher_tag} = block_encrypt(:chacha20_poly1305, subkey, nonce, {aad, message})
-    encode_token("XCP", iv, cipher_text, cipher_tag)
+    "XCP." <> Base.url_encode64(iv <> cipher_tag <> cipher_text, padding: false)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
@@ -52,42 +52,42 @@ defmodule Plug.Crypto.MessageEncryptor do
       when is_binary(encrypted) and (is_binary(aad) or is_list(aad)) and
              bit_size(secret) in [128, 192, 256] and
              is_binary(sign_secret) do
-    case :binary.split(encrypted, ".", [:global]) do
-      # Messages from Plug.Crypto v2.x
-      ["XCP", iv, cipher_text, cipher_tag] ->
-        with {:ok, iv} when bit_size(iv) === 192 <- Base.url_decode64(iv, padding: false),
-             {subkey, nonce} = xchacha20_subkey_and_nonce(secret, iv),
-             {:ok, cipher_text} <- Base.url_decode64(cipher_text, padding: false),
-             {:ok, cipher_tag} when bit_size(cipher_tag) === 128 <-
-               Base.url_decode64(cipher_tag, padding: false),
-             plain_text when is_binary(plain_text) <-
-               block_decrypt(:chacha20_poly1305, subkey, nonce, {aad, cipher_text, cipher_tag}) do
-          {:ok, plain_text}
-        else
-          _ -> :error
-        end
-
-      # Messages from Plug.Crypto v1.x
-      [protected, encrypted_key, iv, cipher_text, cipher_tag] ->
-        with {:ok, "A128GCM"} <- Base.url_decode64(protected, padding: false),
-             {:ok, encrypted_key} <- Base.url_decode64(encrypted_key, padding: false),
-             {:ok, iv} when bit_size(iv) === 96 <- Base.url_decode64(iv, padding: false),
-             {:ok, cipher_text} <- Base.url_decode64(cipher_text, padding: false),
-             {:ok, cipher_tag} when bit_size(cipher_tag) === 128 <-
-               Base.url_decode64(cipher_tag, padding: false),
-             {:ok, key} <- aes_gcm_key_unwrap(encrypted_key, secret, sign_secret),
-             plain_text when is_binary(plain_text) <-
-               block_decrypt(:aes_gcm, key, iv, {aad, cipher_text, cipher_tag}) do
-          {:ok, plain_text}
-        else
-          _ -> :error
-        end
-
-      _ ->
-        :error
-    end
+    unguarded_decrypt(encrypted, aad, secret, sign_secret)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
+  end
+
+  defp unguarded_decrypt("XCP." <> iv_cipher_text_cipher_tag, aad, secret, _sign_secret) do
+    with {:ok, <<iv::192-bits, cipher_tag::128-bits, cipher_text::binary>>} <-
+           Base.url_decode64(iv_cipher_text_cipher_tag, padding: false),
+         {subkey, nonce} = xchacha20_subkey_and_nonce(secret, iv),
+         plain_text when is_binary(plain_text) <-
+           block_decrypt(:chacha20_poly1305, subkey, nonce, {aad, cipher_text, cipher_tag}) do
+      {:ok, plain_text}
+    else
+      _ -> :error
+    end
+  end
+
+  # Messages from Plug.Crypto v1.x
+  defp unguarded_decrypt("QTEyOEdDTQ." <> rest, aad, secret, sign_secret) do
+    with [encrypted_key, iv, cipher_text, cipher_tag] <- :binary.split(rest, ".", [:global]),
+         {:ok, encrypted_key} <- Base.url_decode64(encrypted_key, padding: false),
+         {:ok, iv} when bit_size(iv) === 96 <- Base.url_decode64(iv, padding: false),
+         {:ok, cipher_text} <- Base.url_decode64(cipher_text, padding: false),
+         {:ok, cipher_tag} when bit_size(cipher_tag) === 128 <-
+           Base.url_decode64(cipher_tag, padding: false),
+         {:ok, key} <- aes_gcm_key_unwrap(encrypted_key, secret, sign_secret),
+         plain_text when is_binary(plain_text) <-
+           block_decrypt(:aes_gcm, key, iv, {aad, cipher_text, cipher_tag}) do
+      {:ok, plain_text}
+    else
+      _ -> :error
+    end
+  end
+
+  defp unguarded_decrypt(_rest, _aad, _secret, _sign_secret) do
+    :error
   end
 
   defp block_encrypt(cipher, key, iv, {aad, payload}) do
@@ -193,15 +193,5 @@ defmodule Plug.Crypto.MessageEncryptor do
       cek when bit_size(cek) in [128, 192, 256] -> {:ok, cek}
       _ -> :error
     end
-  end
-
-  defp encode_token(head, iv, cipher_text, cipher_tag) do
-    head
-    |> Kernel.<>(".")
-    |> Kernel.<>(Base.url_encode64(iv, padding: false))
-    |> Kernel.<>(".")
-    |> Kernel.<>(Base.url_encode64(cipher_text, padding: false))
-    |> Kernel.<>(".")
-    |> Kernel.<>(Base.url_encode64(cipher_tag, padding: false))
   end
 end
