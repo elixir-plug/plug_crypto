@@ -113,16 +113,12 @@ defmodule Plug.Crypto do
   @spec masked_compare(binary(), binary(), binary()) :: boolean()
   def masked_compare(left, right, mask)
       when is_binary(left) and is_binary(right) and is_binary(mask) do
-    byte_size(left) == byte_size(right) and masked_compare(left, right, mask, 0)
+    byte_size(left) == byte_size(right) and byte_size(right) == byte_size(mask) and
+      crypto_exor_hash_equals(left, right, mask)
   end
 
-  defp masked_compare(<<x, left::binary>>, <<y, right::binary>>, <<z, mask::binary>>, acc) do
-    xorred = bxor(x, bxor(y, z))
-    masked_compare(left, right, mask, acc ||| xorred)
-  end
-
-  defp masked_compare(<<>>, <<>>, <<>>, acc) do
-    acc === 0
+  defp crypto_exor_hash_equals(x, y, z) do
+    crypto_hash_equals(mask(x, y), z)
   end
 
   @doc """
@@ -132,15 +128,24 @@ defmodule Plug.Crypto do
   """
   @spec secure_compare(binary(), binary()) :: boolean()
   def secure_compare(left, right) when is_binary(left) and is_binary(right) do
-    byte_size(left) == byte_size(right) and secure_compare(left, right, 0)
+    byte_size(left) == byte_size(right) and crypto_hash_equals(left, right)
   end
 
-  defp secure_compare(<<x, left::binary>>, <<y, right::binary>>, acc) do
+  defp crypto_hash_equals(x, y) do
+    # TODO: remove when we require OTP 25.0
+    if Code.ensure_loaded?(:crypto) and function_exported?(:crypto, :hash_equals, 2) do
+      :crypto.hash_equals(x, y)
+    else
+      legacy_secure_compare(x, y, 0)
+    end
+  end
+
+  defp legacy_secure_compare(<<x, left::binary>>, <<y, right::binary>>, acc) do
     xorred = bxor(x, y)
-    secure_compare(left, right, acc ||| xorred)
+    legacy_secure_compare(left, right, acc ||| xorred)
   end
 
-  defp secure_compare(<<>>, <<>>, acc) do
+  defp legacy_secure_compare(<<>>, <<>>, acc) do
     acc === 0
   end
 
