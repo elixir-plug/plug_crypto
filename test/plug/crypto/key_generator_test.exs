@@ -19,7 +19,7 @@ defmodule Plug.Crypto.KeyGeneratorTest do
     end
   end
 
-  test "it works" do
+  test "digest :sha works" do
     key = generate("password", "salt", iterations: 1, length: 20, digest: :sha)
     assert byte_size(key) == 20
     assert to_hex(key) == "0c60c80f961f0e71f3a9b524af6012062fe037a6"
@@ -63,12 +63,6 @@ defmodule Plug.Crypto.KeyGeneratorTest do
              "6e88be8bad7eae9d9e10aa061224034fed48d03fcbad968b56006784539d5214ce970d912ec2049b04231d47c2eb88506945b26b2325e6adfeeba08895ff9587"
   end
 
-  test "digest :sha works" do
-    key = generate("password", "salt", iterations: 1, length: 16, digest: :sha)
-    assert byte_size(key) == 16
-    assert to_hex(key) == "0c60c80f961f0e71f3a9b524af601206"
-  end
-
   test "digest :sha224 works" do
     key = generate("password", "salt", iterations: 1, length: 16, digest: :sha224)
     assert byte_size(key) == 16
@@ -94,17 +88,7 @@ defmodule Plug.Crypto.KeyGeneratorTest do
   end
 
   def generate(secret, salt, opts \\ []) do
-    key = Plug.Crypto.KeyGenerator.generate(secret, salt, opts)
-
-    legacy_key =
-      Plug.Crypto.KeyGenerator.generate(
-        secret,
-        salt,
-        Keyword.merge(opts, force_legacy_mode: true)
-      )
-
-    assert key == legacy_key
-    key
+    Plug.Crypto.KeyGenerator.generate(secret, salt, opts)
   end
 
   def to_hex(value), do: Base.encode16(value, case: :lower)
