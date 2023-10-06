@@ -31,15 +31,20 @@ defmodule Plug.Crypto.KeyGenerator do
 
   """
   def generate(secret, salt, opts \\ []) do
+    force_legacy_mode = Keyword.get(opts, :force_legacy_mode, false)
     iterations = Keyword.get(opts, :iterations, 1000)
     length = Keyword.get(opts, :length, 32)
     digest = Keyword.get(opts, :digest, :sha256)
     cache = Keyword.get(opts, :cache)
-    generate(secret, salt, iterations, length, digest, cache)
+    generate(secret, salt, iterations, length, digest, force_legacy_mode, cache)
   end
 
   @doc false
   def generate(secret, salt, iterations, length, digest, cache) do
+    generate(secret, salt, iterations, length, digest, false, cache)
+  end
+
+  defp generate(secret, salt, iterations, length, digest, force_legacy_mode, cache) do
     cond do
       not is_integer(iterations) or iterations < 1 ->
         raise ArgumentError, "iterations must be an integer >= 1"
@@ -49,11 +54,21 @@ defmodule Plug.Crypto.KeyGenerator do
 
       true ->
         with_cache(cache, {secret, salt, iterations, length, digest}, fn ->
-          generate(hmac_fun(digest, secret), salt, iterations, length, 1, [], 0)
+          pbkdf2_hmac(digest, secret, salt, iterations, length, force_legacy_mode)
         end)
     end
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
+  end
+
+  defp pbkdf2_hmac(digest, secret, salt, iterations, length, force_legacy_mode) do
+    # TODO: remove when we require OTP 24.2
+    if not force_legacy_mode and Code.ensure_loaded?(:crypto) and
+         function_exported?(:crypto, :pbkdf2_hmac, 5) do
+      :crypto.pbkdf2_hmac(digest, secret, salt, iterations, length)
+    else
+      legacy_pbkdf2_hmac(hmac_fun(digest, secret), salt, iterations, length, 1, [], 0)
+    end
   end
 
   defp with_cache(nil, _key, fun), do: fun.()
@@ -70,19 +85,19 @@ defmodule Plug.Crypto.KeyGenerator do
     end
   end
 
-  defp generate(_fun, _salt, _iterations, max_length, _block_index, acc, length)
+  defp legacy_pbkdf2_hmac(_fun, _salt, _iterations, max_length, _block_index, acc, length)
        when length >= max_length do
     acc
     |> IO.iodata_to_binary()
     |> binary_part(0, max_length)
   end
 
-  defp generate(fun, salt, iterations, max_length, block_index, acc, length) do
+  defp legacy_pbkdf2_hmac(fun, salt, iterations, max_length, block_index, acc, length) do
     initial = fun.(<<salt::binary, block_index::integer-size(32)>>)
     block = iterate(fun, iterations - 1, initial, initial)
     length = byte_size(block) + length
 
-    generate(fun, salt, iterations, max_length, block_index + 1, [acc | block], length)
+    legacy_pbkdf2_hmac(fun, salt, iterations, max_length, block_index + 1, [acc | block], length)
   end
 
   defp iterate(_fun, 0, _prev, acc), do: acc

@@ -1,7 +1,6 @@
 defmodule Plug.Crypto.KeyGeneratorTest do
   use ExUnit.Case, async: true
 
-  import Plug.Crypto.KeyGenerator
   import Bitwise
 
   @max_length bsl(1, 32) - 1
@@ -62,6 +61,50 @@ defmodule Plug.Crypto.KeyGeneratorTest do
 
     assert to_hex(key) ==
              "6e88be8bad7eae9d9e10aa061224034fed48d03fcbad968b56006784539d5214ce970d912ec2049b04231d47c2eb88506945b26b2325e6adfeeba08895ff9587"
+  end
+
+  test "digest :sha works" do
+    key = generate("password", "salt", iterations: 1, length: 16, digest: :sha)
+    assert byte_size(key) == 16
+    assert to_hex(key) == "0c60c80f961f0e71f3a9b524af601206"
+  end
+
+  test "digest :sha224 works" do
+    key = generate("password", "salt", iterations: 1, length: 16, digest: :sha224)
+    assert byte_size(key) == 16
+    assert to_hex(key) == "3c198cbdb9464b7857966bd05b7bc92b"
+  end
+
+  test "digest :sha256 works" do
+    key = generate("password", "salt", iterations: 1, length: 16, digest: :sha256)
+    assert byte_size(key) == 16
+    assert to_hex(key) == "120fb6cffcf8b32c43e7225256c4f837"
+  end
+
+  test "digest :sha384 works" do
+    key = generate("password", "salt", iterations: 1, length: 16, digest: :sha384)
+    assert byte_size(key) == 16
+    assert to_hex(key) == "c0e14f06e49e32d73f9f52ddf1d0c5c7"
+  end
+
+  test "digest :sha512 works" do
+    key = generate("password", "salt", iterations: 1, length: 16, digest: :sha512)
+    assert byte_size(key) == 16
+    assert to_hex(key) == "867f70cf1ade02cff3752599a3a53dc4"
+  end
+
+  def generate(secret, salt, opts \\ []) do
+    key = Plug.Crypto.KeyGenerator.generate(secret, salt, opts)
+
+    legacy_key =
+      Plug.Crypto.KeyGenerator.generate(
+        secret,
+        salt,
+        Keyword.merge(opts, force_legacy_mode: true)
+      )
+
+    assert key == legacy_key
+    key
   end
 
   def to_hex(value), do: Base.encode16(value, case: :lower)
