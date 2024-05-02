@@ -192,7 +192,7 @@ defmodule Plug.CryptoTest do
 
     test "supports signed_at in seconds" do
       seconds_in_day = 24 * 60 * 60
-      day_ago_seconds = System.system_time(:second) - seconds_in_day
+      day_ago_seconds = System.os_time(:second) - seconds_in_day
       token = encrypt(@key, "secret", 1, signed_at: day_ago_seconds)
       assert decrypt(@key, "secret", token, max_age: seconds_in_day + 1) == {:ok, 1}
 
