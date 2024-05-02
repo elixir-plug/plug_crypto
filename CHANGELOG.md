@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.1.0 (2024-05-02)
+
+  * Use `System.os_time/1` as the token signing date, since tokens are meant to be shared across machines
+
 ## v2.0.0 (2023-10-06)
 
   * Update Elixir requirement to v1.11+ and require Erlang/OTP 23.
