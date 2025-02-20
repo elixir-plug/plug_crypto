@@ -130,25 +130,32 @@ defmodule Plug.Crypto do
     byte_size(left) == byte_size(right) and crypto_hash_equals(left, right)
   end
 
-  # TODO: remove when we require OTP 25.0
   if Code.ensure_loaded?(:crypto) and function_exported?(:crypto, :hash_equals, 2) do
     defp crypto_hash_equals(x, y) do
-      :crypto.hash_equals(x, y)
+      # Depending on the linked OpenSSL library hash_equals is available.
+      # If not, we fall back to the legacy implementation.
+      try do
+        :crypto.hash_equals(x, y)
+      rescue
+        # Still can throw "Unsupported CRYPTO_memcmp"
+        ErlangError ->
+          legacy_secure_compare(x, y, 0)
+      end
     end
   else
     defp crypto_hash_equals(x, y) do
       legacy_secure_compare(x, y, 0)
     end
+  end
 
-    defp legacy_secure_compare(<<x, left::binary>>, <<y, right::binary>>, acc) do
-      import Bitwise
-      xorred = bxor(x, y)
-      legacy_secure_compare(left, right, acc ||| xorred)
-    end
+  defp legacy_secure_compare(<<x, left::binary>>, <<y, right::binary>>, acc) do
+    import Bitwise
+    xorred = bxor(x, y)
+    legacy_secure_compare(left, right, acc ||| xorred)
+  end
 
-    defp legacy_secure_compare(<<>>, <<>>, acc) do
-      acc === 0
-    end
+  defp legacy_secure_compare(<<>>, <<>>, acc) do
+    acc === 0
   end
 
   @doc """
