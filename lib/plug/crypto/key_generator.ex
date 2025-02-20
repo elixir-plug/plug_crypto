@@ -71,45 +71,43 @@ defmodule Plug.Crypto.KeyGenerator do
   end
 
   # TODO: remove when we require OTP 24.2
-  if Code.ensure_loaded?(:crypto) and function_exported?(:crypto, :pbkdf2_hmac, 5) do
-    defp pbkdf2_hmac(digest, secret, salt, iterations, length) do
+  defp pbkdf2_hmac(digest, secret, salt, iterations, length) do
+    if Code.ensure_loaded?(:crypto) and function_exported?(:crypto, :pbkdf2_hmac, 5) do
       :crypto.pbkdf2_hmac(digest, secret, salt, iterations, length)
-    end
-  else
-    defp pbkdf2_hmac(digest, secret, salt, iterations, length) do
+    else
       legacy_pbkdf2_hmac(hmac_fun(digest, secret), salt, iterations, length, 1, [], 0)
     end
-
-    defp legacy_pbkdf2_hmac(_fun, _salt, _iterations, max_length, _block_index, acc, length)
-         when length >= max_length do
-      acc
-      |> IO.iodata_to_binary()
-      |> binary_part(0, max_length)
-    end
-
-    defp legacy_pbkdf2_hmac(fun, salt, iterations, max_length, block_index, acc, length) do
-      initial = fun.(<<salt::binary, block_index::integer-size(32)>>)
-      block = iterate(fun, iterations - 1, initial, initial)
-      length = byte_size(block) + length
-
-      legacy_pbkdf2_hmac(
-        fun,
-        salt,
-        iterations,
-        max_length,
-        block_index + 1,
-        [acc | block],
-        length
-      )
-    end
-
-    defp iterate(_fun, 0, _prev, acc), do: acc
-
-    defp iterate(fun, iteration, prev, acc) do
-      next = fun.(prev)
-      iterate(fun, iteration - 1, next, :crypto.exor(next, acc))
-    end
-
-    defp hmac_fun(digest, key), do: &:crypto.mac(:hmac, digest, key, &1)
   end
+
+  defp legacy_pbkdf2_hmac(_fun, _salt, _iterations, max_length, _block_index, acc, length)
+       when length >= max_length do
+    acc
+    |> IO.iodata_to_binary()
+    |> binary_part(0, max_length)
+  end
+
+  defp legacy_pbkdf2_hmac(fun, salt, iterations, max_length, block_index, acc, length) do
+    initial = fun.(<<salt::binary, block_index::integer-size(32)>>)
+    block = iterate(fun, iterations - 1, initial, initial)
+    length = byte_size(block) + length
+
+    legacy_pbkdf2_hmac(
+      fun,
+      salt,
+      iterations,
+      max_length,
+      block_index + 1,
+      [acc | block],
+      length
+    )
+  end
+
+  defp iterate(_fun, 0, _prev, acc), do: acc
+
+  defp iterate(fun, iteration, prev, acc) do
+    next = fun.(prev)
+    iterate(fun, iteration - 1, next, :crypto.exor(next, acc))
+  end
+
+  defp hmac_fun(digest, key), do: &:crypto.mac(:hmac, digest, key, &1)
 end

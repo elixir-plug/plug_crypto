@@ -131,24 +131,22 @@ defmodule Plug.Crypto do
   end
 
   # TODO: remove when we require OTP 25.0
-  if Code.ensure_loaded?(:crypto) and function_exported?(:crypto, :hash_equals, 2) do
-    defp crypto_hash_equals(x, y) do
+  defp crypto_hash_equals(x, y) do
+    if Code.ensure_loaded?(:crypto) and function_exported?(:crypto, :hash_equals, 2) do
       :crypto.hash_equals(x, y)
-    end
-  else
-    defp crypto_hash_equals(x, y) do
+    else
       legacy_secure_compare(x, y, 0)
     end
+  end
 
-    defp legacy_secure_compare(<<x, left::binary>>, <<y, right::binary>>, acc) do
-      import Bitwise
-      xorred = bxor(x, y)
-      legacy_secure_compare(left, right, acc ||| xorred)
-    end
+  defp legacy_secure_compare(<<x, left::binary>>, <<y, right::binary>>, acc) do
+    import Bitwise
+    xorred = bxor(x, y)
+    legacy_secure_compare(left, right, acc ||| xorred)
+  end
 
-    defp legacy_secure_compare(<<>>, <<>>, acc) do
-      acc === 0
-    end
+  defp legacy_secure_compare(<<>>, <<>>, acc) do
+    acc === 0
   end
 
   @doc """
