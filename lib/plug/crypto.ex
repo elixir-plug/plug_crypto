@@ -133,7 +133,13 @@ defmodule Plug.Crypto do
   # TODO: remove when we require OTP 25.0
   defp crypto_hash_equals(x, y) do
     if Code.ensure_loaded?(:crypto) and function_exported?(:crypto, :hash_equals, 2) do
-      :crypto.hash_equals(x, y)
+      try do
+        :crypto.hash_equals(x, y)
+      rescue
+        # Still can throw "Unsupported CRYPTO_memcmp"
+        ErlangError ->
+          legacy_secure_compare(x, y, 0)
+      end
     else
       legacy_secure_compare(x, y, 0)
     end
