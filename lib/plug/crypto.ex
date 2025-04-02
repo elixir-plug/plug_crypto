@@ -130,6 +130,7 @@ defmodule Plug.Crypto do
     byte_size(left) == byte_size(right) and crypto_hash_equals(left, right)
   end
 
+  # TODO: remove when we require OTP 25.0
   if Code.ensure_loaded?(:crypto) and function_exported?(:crypto, :hash_equals, 2) do
     defp crypto_hash_equals(x, y) do
       # Depending on the linked OpenSSL library hash_equals is available.
