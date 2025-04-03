@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.1.1 (2025-04-03)
+
+  * Fall back `hash_equals` when missing OpenSSL support
+
 ## v2.1.0 (2024-05-02)
 
   * Use `System.os_time/1` as the token signing date, since tokens are meant to be shared across machines
