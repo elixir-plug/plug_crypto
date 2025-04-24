@@ -12,6 +12,7 @@
 
   * Update Elixir requirement to v1.11+ and require Erlang/OTP 23.
   * Encryption now uses XChaCha20-Poly1305, which is safer, faster, and generates smaller payloads. This means data encrypted with Plug.Crypto v2.0 cannot be decrypted on Plug.Crypto v1.x. However, Plug.Crypto v2.0 can still decrypt data from Plug.Crypto v1.0.
+  * XChaCha20-Poly1305 requires that the underlying Erlang/OTP is compiled with OpenSSL 1.1.0 or newer.
   * Optimize `secure_compare`, `masked_compare`, and key generator algorithms by relying on `:crypto` code when using more recent Erlang/OTP versions.
 
 ## v1.2.5 (2023-03-10)
