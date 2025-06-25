@@ -333,10 +333,9 @@ defmodule Plug.Crypto do
         %{data: data, signed: signed} -> {data, signed, 86400}
       end
 
-    if expired?(signed, Keyword.get(opts, :max_age, max_age)) do
-      {:error, :expired}
-    else
-      {:ok, data}
+    case validate_age(signed, Keyword.get(opts, :max_age, max_age)) do
+      :ok -> {:ok, data}
+      error -> error
     end
   end
 
@@ -351,9 +350,22 @@ defmodule Plug.Crypto do
     KeyGenerator.generate(secret_key_base, salt, iterations, length, digest, cache)
   end
 
-  defp expired?(_signed, :infinity), do: false
-  defp expired?(_signed, max_age_secs) when max_age_secs <= 0, do: true
-  defp expired?(signed, max_age_secs), do: signed + trunc(max_age_secs * 1000) < now_ms()
+  defp validate_age(_signed, :infinity), do: :ok
+  defp validate_age(_signed, max_age_secs) when max_age_secs <= 0, do: {:error, :expired}
+
+  defp validate_age(signed, max_age_secs) do
+    now = now_ms()
+
+    if signed > now do
+      {:error, :invalid}
+    else
+      if signed + trunc(max_age_secs * 1000) < now do
+        {:error, :expired}
+      else
+        :ok
+      end
+    end
+  end
 
   defp now_ms, do: System.os_time(:millisecond)
 end
