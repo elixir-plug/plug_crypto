@@ -200,6 +200,11 @@ defmodule Plug.CryptoTest do
                {:error, :expired}
     end
 
+    test "ensures signed_at is not in future while decrypting" do
+      token = encrypt(@key, "secret", 1, signed_at: System.os_time(:second) + 31_536_000)
+      assert {:error, :invalid} = decrypt(@key, "secret", token)
+    end
+
     test "passes key_iterations options to key generator" do
       signed1 = encrypt(@key, "secret", 1, signed_at: 0, key_iterations: 1)
       signed2 = encrypt(@key, "secret", 1, signed_at: 0, key_iterations: 2)
