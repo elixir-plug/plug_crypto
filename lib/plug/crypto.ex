@@ -356,14 +356,10 @@ defmodule Plug.Crypto do
   defp validate_age(signed, max_age_secs) do
     now = now_ms()
 
-    if signed > now do
-      {:error, :invalid}
-    else
-      if signed + trunc(max_age_secs * 1000) < now do
-        {:error, :expired}
-      else
-        :ok
-      end
+    cond do
+      signed > now -> {:error, :invalid}
+      signed + trunc(max_age_secs * 1000) < now -> {:error, :expired}
+      true -> :ok
     end
   end
 
