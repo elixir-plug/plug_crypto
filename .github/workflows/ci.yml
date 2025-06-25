@@ -15,12 +15,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Oldest.
-          - elixir: "1.11"
-            otp: "23.3"
-            os: ubuntu-20.04
+          - elixir: "1.14"
+            otp: "24.2"
+            os: ubuntu-22.04
 
-          # Newest.
           - elixir: "1.17"
             otp: "27.0"
             lint: lint
