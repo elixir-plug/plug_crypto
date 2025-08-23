@@ -176,7 +176,7 @@ defmodule Plug.Crypto do
     * `:key_digest` - option passed to `Plug.Crypto.KeyGenerator`
       when generating the encryption and signing keys. Defaults to `:sha256`
     * `:signed_at` - set the timestamp of the token in **seconds**.
-      If no value is provided, it will be set to the current time in milliseconds.
+      If no value is provided, it will be set to the current time.
     * `:max_age` - the default maximum age in **seconds** of the token. Defaults to
       `86400` seconds (1 day) and it may be overridden on `verify/4`.
 
@@ -204,7 +204,7 @@ defmodule Plug.Crypto do
     * `:key_digest` - option passed to `Plug.Crypto.KeyGenerator`
       when generating the encryption and signing keys. Defaults to `:sha256`
     * `:signed_at` - set the timestamp of the token in **seconds**.
-      If no value is provided, it will be set to the current time in milliseconds.
+      If no value is provided, it will be set to the current time.
     * `:max_age` - the default maximum age in **seconds** of the token. Defaults to
       `86400` seconds (1 day) and it may be overridden on `decrypt/4`.
 
