@@ -123,7 +123,7 @@ defmodule Plug.Crypto do
   @doc """
   Compares the two binaries in constant-time to avoid timing attacks.
 
-  See: http://codahale.com/a-lesson-in-timing-attacks/
+  See: https://en.wikipedia.org/wiki/Timing_attack
   """
   @spec secure_compare(binary(), binary()) :: boolean()
   def secure_compare(left, right) when is_binary(left) and is_binary(right) do
