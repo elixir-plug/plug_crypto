@@ -139,18 +139,35 @@ defmodule Plug.CryptoTest do
     end
 
     test "supports encode options" do
-      local_signed = sign(@key, "id", %{pid: self()}, encode_opts: [:local])
-      default_signed = sign(@key, "id", %{pid: self()}, encode_opts: [])
+      payload = %{value: String.duplicate("hello", 100)}
 
-      [_, default_payload, _sig] = :binary.split(default_signed, ".", [:global])
-      default_payload = Base.url_decode64!(default_payload, padding: false)
-      refute :binary.match(default_payload, to_string(node())) == :nomatch
+      compressed =
+        sign(@key, "id", payload, encode_opts: [:compressed])
 
-      [_, local_payload, _sig] = :binary.split(local_signed, ".", [:global])
-      local_payload = Base.url_decode64!(local_payload, padding: false)
-      assert :binary.match(local_payload, to_string(node())) == :nomatch
+      uncompressed = sign(@key, "id", payload)
 
-      assert {:ok, %{pid: self()}} == verify(@key, "id", local_signed)
+      assert byte_size(compressed) < 300
+      assert byte_size(uncompressed) > 500
+
+      assert {:ok, payload} ==
+               verify(@key, "id", compressed)
+    end
+
+    if String.to_integer(System.otp_release()) >= 26 do
+      test "supports local external term encoding" do
+        local_signed = sign(@key, "id", %{pid: self()}, encode_opts: [:local])
+        default_signed = sign(@key, "id", %{pid: self()})
+
+        [_, default_payload, _] = :binary.split(default_signed, ".", [:global])
+        default_payload = Base.url_decode64!(default_payload, padding: false)
+        assert :binary.match(default_payload, Atom.to_string(node())) != :nomatch
+
+        [_, local_payload, _] = :binary.split(local_signed, ".", [:global])
+        local_payload = Base.url_decode64!(local_payload, padding: false)
+        assert :binary.match(local_payload, Atom.to_string(node())) == :nomatch
+
+        assert verify(@key, "id", local_signed) == {:ok, %{pid: self()}}
+      end
     end
   end
 
