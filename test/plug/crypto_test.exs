@@ -137,6 +137,21 @@ defmodule Plug.CryptoTest do
 
       assert signed1 == signed2
     end
+
+    test "supports encode options" do
+      local_signed = sign(@key, "id", %{pid: self()}, encode_opts: [:local])
+      default_signed = sign(@key, "id", %{pid: self()}, encode_opts: [])
+
+      [_, default_payload, _sig] = :binary.split(default_signed, ".", [:global])
+      default_payload = Base.url_decode64!(default_payload, padding: false)
+      refute :binary.match(default_payload, to_string(node())) == :nomatch
+
+      [_, local_payload, _sig] = :binary.split(local_signed, ".", [:global])
+      local_payload = Base.url_decode64!(local_payload, padding: false)
+      assert :binary.match(local_payload, to_string(node())) == :nomatch
+
+      assert {:ok, %{pid: self()}} == verify(@key, "id", local_signed)
+    end
   end
 
   describe "encrypt and decrypt" do

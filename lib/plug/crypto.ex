@@ -179,6 +179,7 @@ defmodule Plug.Crypto do
       If no value is provided, it will be set to the current time.
     * `:max_age` - the default maximum age in **seconds** of the token. Defaults to
       `86400` seconds (1 day) and it may be overridden on `verify/4`.
+    * `:encode_opts` - encoding options passed to `:erlang.term_to_binary/2`. Defaults to `[]`.
 
   """
   def sign(key_base, salt, data, opts \\ []) when is_binary(key_base) and is_binary(salt) do
@@ -207,6 +208,7 @@ defmodule Plug.Crypto do
       If no value is provided, it will be set to the current time.
     * `:max_age` - the default maximum age in **seconds** of the token. Defaults to
       `86400` seconds (1 day) and it may be overridden on `decrypt/4`.
+    * `:encode_opts` - encoding options passed to `:erlang.term_to_binary/2`. Defaults to `[]`.
 
   """
   def encrypt(key_base, secret, data, opts \\ [])
@@ -220,7 +222,8 @@ defmodule Plug.Crypto do
     signed_at_seconds = Keyword.get(opts, :signed_at)
     signed_at_ms = if signed_at_seconds, do: trunc(signed_at_seconds * 1000), else: now_ms()
     max_age_in_seconds = Keyword.get(opts, :max_age, 86400)
-    :erlang.term_to_binary({data, signed_at_ms, max_age_in_seconds})
+    encode_opts = Keyword.get(opts, :encode_opts, [])
+    :erlang.term_to_binary({data, signed_at_ms, max_age_in_seconds}, encode_opts)
   end
 
   @doc """
