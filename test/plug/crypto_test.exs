@@ -124,6 +124,30 @@ defmodule Plug.CryptoTest do
       assert signed1 != signed2
     end
 
+    test "passes the compressed option to term_to_binary" do
+      data = List.duplicate("compressible", 100)
+      token = sign(@key, "id", data, signed_at: 0, compressed: true)
+      [_protected, payload, _signature] = String.split(token, ".")
+
+      assert Base.url_decode64!(payload, padding: false) ==
+               :erlang.term_to_binary({data, 0, 86400}, [:compressed])
+
+      assert verify(@key, "id", token, max_age: :infinity) == {:ok, data}
+    end
+
+    if System.otp_release() |> String.to_integer() >= 26 do
+      test "passes the local option to term_to_binary" do
+        data = {:local, self(), make_ref()}
+        token = sign(@key, "id", data, signed_at: 0, local: true)
+        [_protected, payload, _signature] = String.split(token, ".")
+
+        assert Base.url_decode64!(payload, padding: false) ==
+                 :erlang.term_to_binary({data, 0, 86400}, [:local])
+
+        assert verify(@key, "id", token, max_age: :infinity) == {:ok, data}
+      end
+    end
+
     test "key defaults" do
       signed1 = sign(@key, "id", 1, signed_at: 0)
 
@@ -215,6 +239,20 @@ defmodule Plug.CryptoTest do
       signed1 = encrypt(@key, "secret", 1, signed_at: 0, key_digest: :sha256)
       signed2 = encrypt(@key, "secret", 1, signed_at: 0, key_digest: :sha512)
       assert signed1 != signed2
+    end
+
+    test "supports compressed terms" do
+      data = List.duplicate("compressible", 100)
+      token = encrypt(@key, "secret", data, compressed: true)
+      assert decrypt(@key, "secret", token) == {:ok, data}
+    end
+
+    if System.otp_release() |> String.to_integer() >= 26 do
+      test "supports local terms" do
+        data = {:local, self(), make_ref()}
+        token = encrypt(@key, "secret", data, local: true)
+        assert decrypt(@key, "secret", token) == {:ok, data}
+      end
     end
   end
 end

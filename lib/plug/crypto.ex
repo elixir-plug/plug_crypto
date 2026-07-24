@@ -179,6 +179,10 @@ defmodule Plug.Crypto do
       If no value is provided, it will be set to the current time.
     * `:max_age` - the default maximum age in **seconds** of the token. Defaults to
       `86400` seconds (1 day) and it may be overridden on `verify/4`.
+    * `:compressed` - compresses the encoded term. Defaults to `false`.
+    * `:local` - encodes the term in a format that is only decodable by
+      the current Erlang runtime instance. This option requires Erlang/OTP
+      26 or later and will fail on earlier versions. Defaults to `false`.
 
   """
   def sign(key_base, salt, data, opts \\ []) when is_binary(key_base) and is_binary(salt) do
@@ -207,6 +211,10 @@ defmodule Plug.Crypto do
       If no value is provided, it will be set to the current time.
     * `:max_age` - the default maximum age in **seconds** of the token. Defaults to
       `86400` seconds (1 day) and it may be overridden on `decrypt/4`.
+    * `:compressed` - compresses the encoded term. Defaults to `false`.
+    * `:local` - encodes the term in a format that is only decodable by
+      the current Erlang runtime instance. This option requires Erlang/OTP
+      26 or later and will fail on earlier versions. Defaults to `false`.
 
   """
   def encrypt(key_base, secret, data, opts \\ [])
@@ -220,7 +228,11 @@ defmodule Plug.Crypto do
     signed_at_seconds = Keyword.get(opts, :signed_at)
     signed_at_ms = if signed_at_seconds, do: trunc(signed_at_seconds * 1000), else: now_ms()
     max_age_in_seconds = Keyword.get(opts, :max_age, 86400)
-    :erlang.term_to_binary({data, signed_at_ms, max_age_in_seconds})
+
+    term_opts =
+      for option <- [:local, :compressed], Keyword.get(opts, option, false), do: option
+
+    :erlang.term_to_binary({data, signed_at_ms, max_age_in_seconds}, term_opts)
   end
 
   @doc """
