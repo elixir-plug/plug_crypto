@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.2.0 (2026-07-24)
+
+  * Support :compressed and :local options on encrypt/sign
+
 ## v2.1.1 (2025-04-03)
 
   * Fall back `hash_equals` when missing OpenSSL support
