@@ -162,9 +162,9 @@ defmodule Plug.Crypto do
   @doc """
   Encodes and signs data into a token you can send to clients.
 
-      Plug.Crypto.sign(conn.secret_key_base, "user-secret", {:elixir, :terms})
+      Plug.Crypto.sign(conn.secret_key_base, "user-salt", {:elixir, :terms})
 
-  A key will be derived from the secret key base and the given user secret.
+  A key will be derived from the secret key base and the given user salt.
   The key will also be cached for performance reasons on future calls.
 
   ## Options
@@ -194,9 +194,9 @@ defmodule Plug.Crypto do
   @doc """
   Encodes, encrypts, and signs data into a token you can send to clients.
 
-      Plug.Crypto.encrypt(conn.secret_key_base, "user-secret", {:elixir, :terms})
+      Plug.Crypto.encrypt(conn.secret_key_base, "user-salt", {:elixir, :terms})
 
-  A key will be derived from the secret key base and the given user secret.
+  A key will be derived from the secret key base and the given user salt.
   The key will also be cached for performance reasons on future calls.
 
   ## Options
@@ -217,11 +217,11 @@ defmodule Plug.Crypto do
       26 or later and will fail on earlier versions. Defaults to `false`.
 
   """
-  def encrypt(key_base, secret, data, opts \\ [])
-      when is_binary(key_base) and is_binary(secret) do
+  def encrypt(key_base, salt, data, opts \\ [])
+      when is_binary(key_base) and is_binary(salt) do
     data
     |> encode(opts)
-    |> MessageEncryptor.encrypt(get_secret(key_base, secret, opts), "")
+    |> MessageEncryptor.encrypt(get_secret(key_base, salt, opts), "")
   end
 
   defp encode(data, opts) do
@@ -318,16 +318,16 @@ defmodule Plug.Crypto do
       when generating the encryption and signing keys. Defaults to `:sha256`
 
   """
-  def decrypt(key_base, secret, token, opts \\ [])
+  def decrypt(key_base, salt, token, opts \\ [])
 
-  def decrypt(key_base, secret, nil, opts)
-      when is_binary(key_base) and is_binary(secret) and is_list(opts) do
+  def decrypt(key_base, salt, nil, opts)
+      when is_binary(key_base) and is_binary(salt) and is_list(opts) do
     {:error, :missing}
   end
 
-  def decrypt(key_base, secret, token, opts)
-      when is_binary(key_base) and is_binary(secret) and is_list(opts) do
-    secret = get_secret(key_base, secret, opts)
+  def decrypt(key_base, salt, token, opts)
+      when is_binary(key_base) and is_binary(salt) and is_list(opts) do
+    secret = get_secret(key_base, salt, opts)
 
     case MessageEncryptor.decrypt(token, secret, "") do
       {:ok, message} -> decode(message, opts)
