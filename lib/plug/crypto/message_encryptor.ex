@@ -34,6 +34,8 @@ defmodule Plug.Crypto.MessageEncryptor do
   It defaults to "A128GCM" for backwards compatibility.
   """
   def encrypt(message, aad \\ "A128GCM", secret, sign_secret)
+
+  def encrypt(message, aad, secret, sign_secret)
       when is_binary(message) and (is_binary(aad) or is_list(aad)) and
              bit_size(secret) == 256 and
              is_binary(sign_secret) do
@@ -45,10 +47,18 @@ defmodule Plug.Crypto.MessageEncryptor do
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
 
+  def encrypt(_message, _aad, _secret, _sign_secret) do
+    raise ArgumentError,
+          "expected a binary message, a binary or iolist aad, a 256-bit secret " <>
+            "and a binary sign secret"
+  end
+
   @doc """
   Decrypts a message using authenticated encryption.
   """
   def decrypt(encrypted, aad \\ "A128GCM", secret, sign_secret)
+
+  def decrypt(encrypted, aad, secret, sign_secret)
       when is_binary(encrypted) and (is_binary(aad) or is_list(aad)) and
              bit_size(secret) in [128, 192, 256] and
              is_binary(sign_secret) do
@@ -57,7 +67,14 @@ defmodule Plug.Crypto.MessageEncryptor do
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
   end
 
-  defp unguarded_decrypt("XCP." <> iv_cipher_text_cipher_tag, aad, secret, _sign_secret) do
+  def decrypt(_encrypted, _aad, _secret, _sign_secret) do
+    raise ArgumentError,
+          "expected a binary token, a binary or iolist aad, a 128, 192 or 256-bit secret " <>
+            "and a binary sign secret"
+  end
+
+  defp unguarded_decrypt("XCP." <> iv_cipher_text_cipher_tag, aad, secret, _sign_secret)
+       when bit_size(secret) == 256 do
     with {:ok, <<iv::192-bits, cipher_tag::128-bits, cipher_text::binary>>} <-
            Base.url_decode64(iv_cipher_text_cipher_tag, padding: false),
          {subkey, nonce} = xchacha20_subkey_and_nonce(secret, iv),

@@ -18,11 +18,19 @@ defmodule Plug.Crypto.MessageVerifier do
   Signs a message according to the given secret.
   """
   def sign(message, secret, digest_type \\ :sha256)
+
+  def sign(message, secret, digest_type)
       when is_binary(message) and byte_size(secret) > 0 and
              digest_type in [:sha256, :sha384, :sha512] do
     hmac_sha2_sign(message, secret, digest_type)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
+  end
+
+  def sign(_message, _secret, _digest_type) do
+    raise ArgumentError,
+          "expected a binary message, a non-empty binary secret and a digest type " <>
+            "of :sha256, :sha384 or :sha512"
   end
 
   @doc """
@@ -32,6 +40,10 @@ defmodule Plug.Crypto.MessageVerifier do
     hmac_sha2_verify(signed, secret)
   rescue
     e -> reraise e, Plug.Crypto.prune_args_from_stacktrace(__STACKTRACE__)
+  end
+
+  def verify(_signed, _secret) do
+    raise ArgumentError, "expected a binary token and a non-empty binary secret"
   end
 
   ## Signature Algorithms

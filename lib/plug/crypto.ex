@@ -99,8 +99,13 @@ defmodule Plug.Crypto do
   Both tokens are required to have the same size.
   """
   @spec mask(binary(), binary()) :: binary()
-  def mask(left, right) do
+  def mask(left, right)
+      when is_binary(left) and is_binary(right) and byte_size(left) == byte_size(right) do
     :crypto.exor(left, right)
+  end
+
+  def mask(_left, _right) do
+    raise ArgumentError, "expected two binaries of the same size"
   end
 
   @doc """
@@ -116,6 +121,10 @@ defmodule Plug.Crypto do
       crypto_exor_hash_equals(left, right, mask)
   end
 
+  def masked_compare(_left, _right, _mask) do
+    raise ArgumentError, "expected three binaries"
+  end
+
   defp crypto_exor_hash_equals(x, y, z) do
     crypto_hash_equals(mask(x, y), z)
   end
@@ -128,6 +137,10 @@ defmodule Plug.Crypto do
   @spec secure_compare(binary(), binary()) :: boolean()
   def secure_compare(left, right) when is_binary(left) and is_binary(right) do
     byte_size(left) == byte_size(right) and crypto_hash_equals(left, right)
+  end
+
+  def secure_compare(_left, _right) do
+    raise ArgumentError, "expected two binaries"
   end
 
   # TODO: remove when we require OTP 25.0
@@ -185,10 +198,17 @@ defmodule Plug.Crypto do
       26 or later and will fail on earlier versions. Defaults to `false`.
 
   """
-  def sign(key_base, salt, data, opts \\ []) when is_binary(key_base) and is_binary(salt) do
+  def sign(key_base, salt, data, opts \\ [])
+
+  def sign(key_base, salt, data, opts)
+      when is_binary(key_base) and is_binary(salt) and is_list(opts) do
     data
     |> encode(opts)
     |> MessageVerifier.sign(get_secret(key_base, salt, opts))
+  end
+
+  def sign(key_base, salt, _data, opts) do
+    raise ArgumentError, bad_args(key_base, salt, opts)
   end
 
   @doc """
@@ -218,10 +238,16 @@ defmodule Plug.Crypto do
 
   """
   def encrypt(key_base, salt, data, opts \\ [])
-      when is_binary(key_base) and is_binary(salt) do
+
+  def encrypt(key_base, salt, data, opts)
+      when is_binary(key_base) and is_binary(salt) and is_list(opts) do
     data
     |> encode(opts)
     |> MessageEncryptor.encrypt(get_secret(key_base, salt, opts), "")
+  end
+
+  def encrypt(key_base, salt, _data, opts) do
+    raise ArgumentError, bad_args(key_base, salt, opts)
   end
 
   defp encode(data, opts) do
@@ -289,7 +315,7 @@ defmodule Plug.Crypto do
   def verify(key_base, salt, token, opts \\ [])
 
   def verify(key_base, salt, token, opts)
-      when is_binary(key_base) and is_binary(salt) and is_binary(token) do
+      when is_binary(key_base) and is_binary(salt) and is_binary(token) and is_list(opts) do
     secret = get_secret(key_base, salt, opts)
 
     case MessageVerifier.verify(token, secret) do
@@ -298,8 +324,18 @@ defmodule Plug.Crypto do
     end
   end
 
-  def verify(_key_base, salt, nil, _opts) when is_binary(salt) do
+  def verify(key_base, salt, nil, opts)
+      when is_binary(key_base) and is_binary(salt) and is_list(opts) do
     {:error, :missing}
+  end
+
+  def verify(key_base, salt, _token, opts)
+      when is_binary(key_base) and is_binary(salt) and is_list(opts) do
+    {:error, :invalid}
+  end
+
+  def verify(key_base, salt, _token, opts) do
+    raise ArgumentError, bad_args(key_base, salt, opts)
   end
 
   @doc """
@@ -326,7 +362,7 @@ defmodule Plug.Crypto do
   end
 
   def decrypt(key_base, salt, token, opts)
-      when is_binary(key_base) and is_binary(salt) and is_list(opts) do
+      when is_binary(key_base) and is_binary(salt) and is_binary(token) and is_list(opts) do
     secret = get_secret(key_base, salt, opts)
 
     case MessageEncryptor.decrypt(token, secret, "") do
@@ -335,23 +371,70 @@ defmodule Plug.Crypto do
     end
   end
 
-  defp decode(message, opts) do
-    {data, signed, max_age} =
-      case non_executable_binary_to_term(message) do
-        {data, signed, max_age} -> {data, signed, max_age}
-        # For backwards compatibility with Plug.Crypto v1.1
-        {data, signed} -> {data, signed, 86400}
-        # For backwards compatibility with Phoenix which had the original code
-        %{data: data, signed: signed} -> {data, signed, 86400}
-      end
+  def decrypt(key_base, salt, _token, opts)
+      when is_binary(key_base) and is_binary(salt) and is_list(opts) do
+    {:error, :invalid}
+  end
 
-    case validate_age(signed, Keyword.get(opts, :max_age, max_age)) do
-      :ok -> {:ok, data}
-      error -> error
+  def decrypt(key_base, salt, _token, opts) do
+    raise ArgumentError, bad_args(key_base, salt, opts)
+  end
+
+  defp decode(message, opts) do
+    case decode_message(message) do
+      {:ok, {data, signed, max_age}} ->
+        case validate_age(signed, Keyword.get(opts, :max_age, max_age)) do
+          :ok -> {:ok, data}
+          error -> error
+        end
+
+      :error ->
+        {:error, :invalid}
     end
   end
 
+  # The payload is authenticated at this point but may still be undecodable:
+  # a term encoded with the :local option can only be decoded by the runtime
+  # instance that produced it, and a payload produced by another signer of
+  # the same key may not have the expected form.
+  defp decode_message(message) do
+    case non_executable_binary_to_term(message) do
+      {data, signed, max_age}
+      when is_integer(signed) and (is_number(max_age) or max_age == :infinity) ->
+        {:ok, {data, signed, max_age}}
+
+      # For backwards compatibility with Plug.Crypto v1.1
+      {data, signed} when is_integer(signed) ->
+        {:ok, {data, signed, 86400}}
+
+      # For backwards compatibility with Phoenix which had the original code
+      %{data: data, signed: signed} when is_integer(signed) ->
+        {:ok, {data, signed, 86400}}
+
+      _other ->
+        :error
+    end
+  rescue
+    ArgumentError -> :error
+  end
+
   ## Helpers
+
+  # Raised from inside a function body so the secret key base never
+  # appears as a stacktrace argument (a failed guard would include it).
+  defp bad_args(key_base, salt, opts) do
+    "expected the secret key base and the salt to be binaries and the options " <>
+      "to be a keyword list, got: #{describe_type(key_base)}, #{describe_type(salt)} " <>
+      "and #{describe_type(opts)}"
+  end
+
+  defp describe_type(nil), do: "nil"
+  defp describe_type(term) when is_binary(term), do: "a binary"
+  defp describe_type(term) when is_list(term), do: "a list"
+  defp describe_type(term) when is_map(term), do: "a map"
+  defp describe_type(term) when is_atom(term), do: "an atom"
+  defp describe_type(term) when is_number(term), do: "a number"
+  defp describe_type(_term), do: "an unexpected term"
 
   # Gathers configuration and generates the key secrets and signing secrets.
   defp get_secret(secret_key_base, salt, opts) do
