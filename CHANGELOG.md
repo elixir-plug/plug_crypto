@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.2.1 (2026-10-23)
+
+  * Avoid secret key base from being written to logs in case of bad args (CVE-2026-105963) (GHSA-ffw9-w85g-f2vh)
+
 ## v2.2.0 (2026-07-24)
 
   * Support :compressed and :local options on encrypt/sign
