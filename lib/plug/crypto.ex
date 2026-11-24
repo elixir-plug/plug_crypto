@@ -37,6 +37,16 @@ defmodule Plug.Crypto do
   If you want to avoid atoms from being created, then you can pass
   `[:safe]` as options, as that will also enable the safety mechanisms
   from `:erlang.binary_to_term/2` itself.
+
+  > #### Use it alongside signing or encryption {. :warning}
+  >
+  > If you are encoding data using `:erlang.term_to_binary/2`, sending it
+  > to an untrusted actor, and decoding it using this function, we strongly
+  > advise you to sign or encrypt the payload before sending, and verify it
+  > on receiving. Although this function rules out anonymous functions,
+  > idioms such as `{module, function, args}` tuples may still be injected
+  > anywhere within the decoded data-structure (such as within structs)
+  > to invoke custom code.
   """
   @spec non_executable_binary_to_term(binary(), [atom()]) :: term()
   def non_executable_binary_to_term(binary, opts \\ []) when is_binary(binary) do
